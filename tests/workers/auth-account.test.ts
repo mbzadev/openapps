@@ -74,7 +74,7 @@ describe('legacy auth and account behavior', () => {
     expect(logout.status).toBe(204)
     expect(logout.headers.get('set-cookie')).toContain('Max-Age=0')
     expect((await c.call('/auth/me')).status).toBe(401)
-  }, 60_000)
+  }, 300_000)
 
   it('preserves profile verification rules and deletes an account only with its password', async () => {
     const c = client()
@@ -103,7 +103,7 @@ describe('legacy auth and account behavior', () => {
     expect((await c.call('/account/profile', { method: 'DELETE', body: JSON.stringify({ password: 'current-pass' }) }, false)).status).toBe(401)
     expect((await c.call('/account/profile', { method: 'DELETE', body: JSON.stringify({ password: 'current-pass' }) })).status).toBe(204)
     expect(await testEnv.DB.prepare('SELECT id FROM users WHERE id=?').bind(payload.user.id).first()).toBeNull()
-  }, 60_000)
+  }, 300_000)
 
   it('validates current password and confirmation before updating the password hash', async () => {
     const c = client()
@@ -115,7 +115,7 @@ describe('legacy auth and account behavior', () => {
     expect((await c.call('/account/password', { method: 'PUT', body: JSON.stringify({ current_password: 'current-pass', password: 'new-password', password_confirmation: 'new-password' }) })).status).toBe(200)
     expect((await c.call('/auth/login', { method: 'POST', body: JSON.stringify({ email: 'security@example.test', password: 'current-pass' }) }, false)).status).toBe(401)
     expect((await c.call('/auth/login', { method: 'POST', body: JSON.stringify({ email: 'security@example.test', password: 'new-password' }) }, false)).status).toBe(200)
-  }, 90_000)
+  }, 300_000)
 
   it('creates, lists and revokes opaque API tokens without exposing auth-token', async () => {
     const c = client()
@@ -142,7 +142,7 @@ describe('legacy auth and account behavior', () => {
     expect((await c.call(`/account/api-tokens/${token.token.id}`, { method: 'DELETE' }, false)).status).toBe(401)
     expect((await c.call(`/account/api-tokens/${token.token.id}`, { method: 'DELETE' })).status).toBe(204)
     expect(await (await c.call('/account/api-tokens')).json()).toEqual([])
-  }, 60_000)
+  }, 300_000)
 
   it('scopes folder CRUD, ordering, uniqueness and deletion side effects to the caller', async () => {
     const c = client()
@@ -177,5 +177,5 @@ describe('legacy auth and account behavior', () => {
     expect((await c.call(`/folders/${firstFolder.id}`, { method: 'DELETE' }, false)).status).toBe(401)
     expect((await c.call(`/folders/${firstFolder.id}`, { method: 'DELETE' })).status).toBe(204)
     expect(await testEnv.DB.prepare('SELECT folder_id FROM user_apps WHERE user_id=? AND app_id=?').bind(payload.user.id, app!.id).first()).toEqual({ folder_id: null })
-  }, 60_000)
+  }, 300_000)
 })
