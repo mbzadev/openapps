@@ -19,7 +19,7 @@ export default defineConfig({
     name: 'chromium',
     use: {
       ...devices['Desktop Chrome'],
-      launchOptions: hostIp ? { args: ['--disable-quic', `--host-resolver-rules=MAP ${hostname} ${hostIp},EXCLUDE localhost`] } : undefined,
+      launchOptions: { args: ['--disable-quic', ...(hostIp ? [`--host-resolver-rules=MAP ${hostname} ${hostIp},EXCLUDE localhost`] : [])] },
     },
   }],
 })

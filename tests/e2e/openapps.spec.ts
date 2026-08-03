@@ -13,7 +13,10 @@ test('account, token, folder, discovery, tracking, analytics and cleanup journey
     await page.getByLabel('Email address').fill(email)
     await page.getByLabel('Password', { exact: true }).fill(password)
     await page.getByLabel('Confirm password').fill(password)
+    const registrationResponse = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/register') && response.request().method() === 'POST')
     await page.getByRole('button', { name: 'Create account' }).click()
+    const browserToken = (await (await registrationResponse).json() as { token: string }).token
+    await context.setExtraHTTPHeaders({ Authorization: `Bearer ${browserToken}` })
     await expect(page).toHaveURL(/\/discovery\/trending/)
     registered = true
 
@@ -32,11 +35,15 @@ test('account, token, folder, discovery, tracking, analytics and cleanup journey
     const folder = await api.post('/api/v1/folders', { data: { name: 'Playwright Folder', color: 'emerald' } })
     expect(folder.status()).toBe(201)
 
-    const search = await api.get('/api/v1/apps/search?term=Instagram&platform=ios&country_code=us&limit=1')
-    expect(search.status()).toBe(200)
-    const results = await search.json() as Array<{ external_id: string }>
-    expect(results.length).toBeGreaterThan(0)
-    const externalId = results[0]!.external_id
+    let externalId = process.env.OPENAPPS_E2E_EXTERNAL_ID
+    if (!externalId) {
+      const search = await api.get('/api/v1/apps/search?term=Instagram&platform=ios&country_code=us&limit=1')
+      expect(search.status()).toBe(200)
+      const results = await search.json() as Array<{ external_id: string }>
+      expect(results.length).toBeGreaterThan(0)
+      externalId = results[0]!.external_id
+    }
+    const expectedAppName = process.env.OPENAPPS_E2E_APP_NAME ?? 'Instagram'
 
     expect((await api.post(`/api/v1/apps/ios/${externalId}/track`, { data: {} })).status()).toBe(204)
     expect((await api.post(`/api/v1/apps/ios/${externalId}/sync`, { data: {} })).status()).toBe(200)
@@ -45,7 +52,7 @@ test('account, token, folder, discovery, tracking, analytics and cleanup journey
     expect((await api.get('/api/v1/changes/apps')).status()).toBe(200)
 
     await page.goto('/apps')
-    await expect(page.getByText('Instagram', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText(expectedAppName, { exact: false }).first()).toBeVisible()
     await page.goto('/competitors')
     await expect(page).toHaveURL(/\/competitors/)
 
