@@ -12,7 +12,7 @@ export class StoreRateLimiter extends DurableObject<Env> {
 
   async acquire(limit: number, periodSeconds: number): Promise<{ allowed: boolean; retryAfterMs: number }> {
     const now = Date.now()
-    const row = this.ctx.storage.sql.exec<{ tokens: number; updated_at: number }>('SELECT tokens, updated_at FROM quota WHERE id = 1').one()
+    const row = this.ctx.storage.sql.exec<{ tokens: number; updated_at: number }>('SELECT tokens, updated_at FROM quota WHERE id = 1').toArray()[0] ?? null
     const result = nextQuota(row ?? null, limit, periodSeconds, now)
     this.ctx.storage.sql.exec('INSERT OR REPLACE INTO quota (id,tokens,updated_at) VALUES (1,?,?)', result.tokens, now)
     return { allowed: result.allowed, retryAfterMs: result.retryAfterMs }
