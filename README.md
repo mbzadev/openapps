@@ -39,4 +39,6 @@ The stdio compatibility client accepts `OPENAPPS_API_URL` and `OPENAPPS_API_TOKE
 
 The production branch is `main`. Cloudflare Builds connects both Workers to this monorepo; a failed lockfile install, typecheck, test or build prevents deployment. `master` is retained as the pre-rewrite backup branch.
 
+Production is promoted only from validated `main` commits; non-production branches target the isolated preview bindings.
+
 MIT — see [LICENSE](LICENSE).
