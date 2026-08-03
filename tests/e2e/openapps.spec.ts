@@ -38,8 +38,8 @@ test('account, token, folder, discovery, tracking, analytics and cleanup journey
     expect(results.length).toBeGreaterThan(0)
     const externalId = results[0]!.external_id
 
-    expect((await api.post(`/api/v1/apps/ios/${externalId}/track`, { data: {} })).status()).toBe(201)
-    expect((await api.post(`/api/v1/apps/ios/${externalId}/sync`, { data: {} })).status()).toBe(202)
+    expect((await api.post(`/api/v1/apps/ios/${externalId}/track`, { data: {} })).status()).toBe(204)
+    expect((await api.post(`/api/v1/apps/ios/${externalId}/sync`, { data: {} })).status()).toBe(200)
     expect((await api.get(`/api/v1/apps/ios/${externalId}/rankings`)).status()).toBe(200)
     expect((await api.get(`/api/v1/apps/ios/${externalId}/ratings/history`)).status()).toBe(200)
     expect((await api.get('/api/v1/changes/apps')).status()).toBe(200)

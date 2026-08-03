@@ -20,7 +20,9 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // shadcn/base-ui modules intentionally co-locate variants and hooks with
+      // components; this is safe in the production Vite build.
+      'react-refresh/only-export-components': 'off',
       'react-hooks/set-state-in-effect': 'off',
     },
   },

@@ -31,7 +31,7 @@ export default function CountrySelect({ value, onChange, className, disabledCode
   const [open, setOpen] = useState(false)
   const { data: countries } = useCountries()
   const selected = countries?.find((c) => c.code === value)
-  const disabledSet = new Set(disabledCodes ?? [])
+  const disabledSet = useMemo(() => new Set(disabledCodes ?? []), [disabledCodes])
 
   // Exclude internal sentinel country codes (e.g. 'zz' for Android global metric).
   // Available countries first (A-Z), then disabled ones (A-Z).
