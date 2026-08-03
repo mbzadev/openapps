@@ -1,3 +1,5 @@
+import { pbkdf2Sync } from 'node:crypto'
+
 const encoder = new TextEncoder()
 
 export function randomToken(byteLength = 32): string {
@@ -44,10 +46,8 @@ export async function verifyPassword(password: string, encoded: string): Promise
 }
 
 async function derivePbkdf2(password: Uint8Array<ArrayBuffer>, salt: Uint8Array<ArrayBuffer>, iterations: number): Promise<Uint8Array<ArrayBuffer>> {
-  const key = await crypto.subtle.importKey('raw', password, 'PBKDF2', false, ['deriveBits'])
-  return new Uint8Array(await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
-    key,
-    256,
-  ))
+  // Workers WebCrypto deliberately caps a single PBKDF2 operation at 100k.
+  // node:crypto is a native Workers API under nodejs_compat and performs the
+  // exact 600k-iteration PBKDF2 construction without weakening/composing it.
+  return new Uint8Array(pbkdf2Sync(password, salt, iterations, 32, 'sha256'))
 }
