@@ -151,7 +151,11 @@ app.post('/account/api-tokens', async (c) => {
   const parsed = z.object({ name: z.string().trim().min(1).max(255), abilities: z.array(z.string()).optional() }).safeParse(await c.req.json().catch(() => ({})))
   if (!parsed.success) return c.json(validation(z.flattenError(parsed.error).fieldErrors as Record<string, string[]>), 422)
   const issued = await issueToken(c.var.db, c.var.auth.user.id, parsed.data.name, parsed.data.abilities ?? ['openapps:read', 'openapps:write'], null)
-  return c.json({ id: issued.id, name: parsed.data.name, token: issued.plainTextToken, created_at: nowIso() }, 201)
+  const createdAt = nowIso()
+  return c.json({
+    token: { id: issued.id, name: parsed.data.name, abilities: parsed.data.abilities ?? ['openapps:read', 'openapps:write'], last_used_at: null, created_at: createdAt },
+    plain_text_token: issued.plainTextToken,
+  }, 201)
 })
 app.delete('/account/api-tokens/:tokenId', async (c) => {
   const tokenId = Number(c.req.param('tokenId'))

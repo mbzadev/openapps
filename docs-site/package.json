@@ -12,9 +12,9 @@
     "sync-docs": "node scripts/sync-docs.mjs"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.38.4",
-    "astro": "^6.1.9",
-    "sharp": "^0.34.0"
+    "@astrojs/starlight": "^0.41.6",
+    "astro": "^7.1.6",
+    "sharp": "^0.35.3"
   },
   "engines": {
     "node": ">=20.0.0"

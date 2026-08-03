@@ -51,6 +51,8 @@
 /packages/*/dist/
 /mcp/dist/
 /workers/*/dist
+/test-results/
+/playwright-report/
 
 # Google Play Scraper
 /scraper-android/__pycache__
