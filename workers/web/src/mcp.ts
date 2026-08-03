@@ -2,6 +2,7 @@ import { McpServer, createMcpHandler, type AuthInfo } from '@modelcontextprotoco
 import { z } from 'zod'
 import { authenticateRequest } from '@openapps/core'
 import api from './api.js'
+import { publicAppUrl } from './origin.js'
 import type { Env } from './env.js'
 
 type Args = Record<string, unknown>
@@ -122,10 +123,11 @@ export function appendQueryValue(params: URLSearchParams, key: string, value: un
 }
 
 export async function handleMcp(request: Request, env: Env, executionCtx: AppExecutionContext) {
+  const appUrl = publicAppUrl(env, request.url)
   const auth = await authenticateRequest(env.DB, request)
-  if (!auth) return new Response(JSON.stringify({ error: 'invalid_token' }), { status: 401, headers: { 'Content-Type': 'application/json', 'WWW-Authenticate': `Bearer resource_metadata="${env.APP_URL}/.well-known/oauth-protected-resource/mcp"` } })
+  if (!auth) return new Response(JSON.stringify({ error: 'invalid_token' }), { status: 401, headers: { 'Content-Type': 'application/json', 'WWW-Authenticate': `Bearer resource_metadata="${appUrl}/.well-known/oauth-protected-resource/mcp"` } })
   if (!auth.abilities.includes('*') && !auth.abilities.includes('openapps:read')) return new Response(JSON.stringify({ error: 'insufficient_scope' }), { status: 403, headers: { 'Content-Type': 'application/json' } })
-  const info: AuthInfo = { token: request.headers.get('Authorization')?.slice(7) ?? '', clientId: `user-${auth.user.id}`, scopes: auth.abilities, expiresAt: Math.floor(Date.now() / 1000) + 3600, resource: new URL(`${env.APP_URL}/mcp`), extra: { userId: auth.user.id } }
+  const info: AuthInfo = { token: request.headers.get('Authorization')?.slice(7) ?? '', clientId: `user-${auth.user.id}`, scopes: auth.abilities, expiresAt: Math.floor(Date.now() / 1000) + 3600, resource: new URL(`${appUrl}/mcp`), extra: { userId: auth.user.id } }
   const handler = createMcpHandler(async ({ requestInfo, authInfo }) => {
     const server = new McpServer({ name: 'openapps-by-mbza', version: '2.0.0' }, { instructions: 'OpenApps by MBZA provides App Store and Google Play intelligence through 29 account-isolated tools.' })
     if (requestInfo && authInfo) registerTools(server, requestInfo, authInfo, env, executionCtx)

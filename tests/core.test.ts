@@ -4,6 +4,7 @@ import { hashPassword, jobMessageSchema, randomToken, sha256, verifyPassword } f
 import { AppleScraper, GooglePlayScraper } from '../packages/scrapers/src/index.ts'
 import { escapeHtml } from '../workers/web/src/oauth.ts'
 import { appendQueryValue } from '../workers/web/src/mcp.ts'
+import { allowedCorsOrigin, publicAppUrl } from '../workers/web/src/origin.ts'
 import { matchPath } from '../web/src/lib/router.tsx'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -54,6 +55,16 @@ describe('native SPA route matching', () => {
     expect(matchPath('/apps/:platform/:externalId', '/apps/ios')).toBeNull()
     expect(matchPath('/apps', '/apps/ios')).toBeNull()
     expect(matchPath('*', '/anything')).toEqual({})
+  })
+})
+
+describe('production and Cloudflare preview origins', () => {
+  it('keeps production canonical and makes version previews self-contained', () => {
+    expect(publicAppUrl({ APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'production' }, 'https://attacker.invalid/path')).toBe('https://apps.mbza.dev')
+    const preview = 'https://6f2d2f2-openapps-web-preview.mbza.workers.dev'
+    expect(publicAppUrl({ APP_URL: 'https://openapps-web-preview.mbza.workers.dev', ENVIRONMENT: 'preview' }, `${preview}/mcp`)).toBe(preview)
+    expect(allowedCorsOrigin(preview)).toBe(preview)
+    expect(allowedCorsOrigin('https://apps.mbza.dev.attacker.invalid')).toBe('')
   })
 })
 

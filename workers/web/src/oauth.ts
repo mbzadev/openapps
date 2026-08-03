@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { authenticateRequest, issueToken, sha256 } from '@openapps/core'
+import { publicAppUrl } from './origin.js'
 import type { Env, Variables } from './env.js'
 
 type OAuthClient = { client_id: string; client_name: string; redirect_uris: string[]; token_endpoint_auth_method: 'none'; grant_types: string[]; response_types: string[] }
@@ -31,19 +32,25 @@ function validRedirect(uri: string) {
   } catch { return false }
 }
 
-oauth.get('/.well-known/oauth-authorization-server', (c) => c.json({
-  issuer: c.env.APP_URL,
-  authorization_endpoint: `${c.env.APP_URL}/oauth/authorize`,
-  token_endpoint: `${c.env.APP_URL}/oauth/token`,
-  registration_endpoint: `${c.env.APP_URL}/oauth/register`,
-  revocation_endpoint: `${c.env.APP_URL}/oauth/revoke`,
-  response_types_supported: ['code'], grant_types_supported: ['authorization_code'],
-  code_challenge_methods_supported: ['S256'], token_endpoint_auth_methods_supported: ['none'], scopes_supported: scopes,
-}))
-oauth.get('/.well-known/oauth-protected-resource/mcp', (c) => c.json({
-  resource: `${c.env.APP_URL}/mcp`, authorization_servers: [c.env.APP_URL],
-  scopes_supported: scopes, bearer_methods_supported: ['header'], resource_name: c.env.APP_NAME,
-}))
+oauth.get('/.well-known/oauth-authorization-server', (c) => {
+  const appUrl = publicAppUrl(c.env, c.req.url)
+  return c.json({
+    issuer: appUrl,
+    authorization_endpoint: `${appUrl}/oauth/authorize`,
+    token_endpoint: `${appUrl}/oauth/token`,
+    registration_endpoint: `${appUrl}/oauth/register`,
+    revocation_endpoint: `${appUrl}/oauth/revoke`,
+    response_types_supported: ['code'], grant_types_supported: ['authorization_code'],
+    code_challenge_methods_supported: ['S256'], token_endpoint_auth_methods_supported: ['none'], scopes_supported: scopes,
+  })
+})
+oauth.get('/.well-known/oauth-protected-resource/mcp', (c) => {
+  const appUrl = publicAppUrl(c.env, c.req.url)
+  return c.json({
+    resource: `${appUrl}/mcp`, authorization_servers: [appUrl],
+    scopes_supported: scopes, bearer_methods_supported: ['header'], resource_name: c.env.APP_NAME,
+  })
+})
 oauth.get('/.well-known/oauth-protected-resource', (c) => c.redirect('/.well-known/oauth-protected-resource/mcp', 308))
 
 oauth.post('/oauth/register', async (c) => {
