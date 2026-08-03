@@ -163,7 +163,7 @@ export default function NavUser() {
               <DropdownMenuItem
                 render={
                   <a
-                    href="https://appstorecat.github.io/appstorecat/"
+                    href="https://apps.mbza.dev/docs"
                     target="_blank"
                     rel="noopener noreferrer"
                   />
@@ -175,7 +175,7 @@ export default function NavUser() {
               <DropdownMenuItem
                 render={
                   <a
-                    href="https://github.com/appstorecat/appstorecat"
+                    href="https://github.com/mbzadev/openapps"
                     target="_blank"
                     rel="noopener noreferrer"
                   />

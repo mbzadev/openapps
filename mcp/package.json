@@ -1,10 +1,11 @@
 {
-  "name": "@appstorecat/mcp",
-  "version": "1.2.8",
-  "description": "MCP server for AppStoreCat — App Store & Google Play intelligence toolkit",
+  "name": "@openapps/mcp",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Compatible stdio MCP client for OpenApps by MBZA",
   "type": "module",
   "bin": {
-    "appstorecat-mcp": "dist/index.js"
+    "openapps-mcp": "dist/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -21,7 +22,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/appstorecat/appstorecat.git",
+    "url": "https://github.com/mbzadev/openapps.git",
     "directory": "mcp"
   },
   "dependencies": {

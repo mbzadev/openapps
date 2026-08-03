@@ -1,0 +1,86 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "openapps-jobs",
+  "account_id": "8706f1b6760214ae04dad8c10116be36",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "d1_databases": [
+    { "binding": "DB", "database_name": "openapps-production", "database_id": "12426f60-ca41-4e4f-a975-718025f1dbfa", "migrations_dir": "../../migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts" }
+  ],
+  "browser": { "binding": "BROWSER" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "STORE_RATE_LIMITER", "class_name": "StoreRateLimiter" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["StoreRateLimiter"] }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "SYNC_TRACKED_IOS", "queue": "openapps-sync-tracked-ios" },
+      { "binding": "SYNC_TRACKED_ANDROID", "queue": "openapps-sync-tracked-android" },
+      { "binding": "CHARTS_IOS", "queue": "openapps-charts-ios" },
+      { "binding": "CHARTS_ANDROID", "queue": "openapps-charts-android" },
+      { "binding": "RECONCILE", "queue": "openapps-reconcile" }
+    ],
+    "consumers": [
+      { "queue": "openapps-sync-tracked-ios", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-sync-tracked-android", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-sync-on-demand-ios", "max_batch_size": 5, "max_batch_timeout": 2, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-sync-on-demand-android", "max_batch_size": 5, "max_batch_timeout": 2, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-charts-ios", "max_batch_size": 5, "max_batch_timeout": 10, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-charts-android", "max_batch_size": 5, "max_batch_timeout": 10, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-reconcile", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-dead-letter", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 2 }
+    ]
+  },
+  "triggers": {
+    "crons": ["*/20 * * * *", "*/15 * * * *", "30 0 * * *", "0 4 * * *"]
+  },
+  "vars": { "ENVIRONMENT": "production" },
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.1 }
+  },
+  "env": {
+    "preview": {
+      "workers_dev": false,
+      "d1_databases": [
+        { "binding": "DB", "database_name": "openapps-preview", "database_id": "b4b15077-8a2a-4a14-aabf-31c7d2fb0e2e", "migrations_dir": "../../migrations" }
+      ],
+      "r2_buckets": [
+        { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts-preview" }
+      ],
+      "browser": { "binding": "BROWSER" },
+      "durable_objects": { "bindings": [{ "name": "STORE_RATE_LIMITER", "class_name": "StoreRateLimiter" }] },
+      "queues": {
+        "producers": [
+          { "binding": "SYNC_TRACKED_IOS", "queue": "openapps-sync-tracked-ios-preview" },
+          { "binding": "SYNC_TRACKED_ANDROID", "queue": "openapps-sync-tracked-android-preview" },
+          { "binding": "CHARTS_IOS", "queue": "openapps-charts-ios-preview" },
+          { "binding": "CHARTS_ANDROID", "queue": "openapps-charts-android-preview" },
+          { "binding": "RECONCILE", "queue": "openapps-reconcile-preview" }
+        ],
+        "consumers": [
+          { "queue": "openapps-sync-tracked-ios-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
+          { "queue": "openapps-sync-tracked-android-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
+          { "queue": "openapps-sync-on-demand-ios-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
+          { "queue": "openapps-sync-on-demand-android-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
+          { "queue": "openapps-charts-ios-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
+          { "queue": "openapps-charts-android-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
+          { "queue": "openapps-reconcile-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
+          { "queue": "openapps-dead-letter-preview", "max_retries": 2 }
+        ]
+      },
+      "triggers": { "crons": [] },
+      "vars": { "ENVIRONMENT": "preview" }
+    }
+  }
+}

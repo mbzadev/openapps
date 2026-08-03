@@ -1,8 +1,8 @@
 import { defineConfig } from 'orval'
 
 export default defineConfig({
-  appstorecat: {
-    input: '../server/storage/api-docs/api-docs.json',
+  openapps: {
+    input: '../packages/contracts/openapi.json',
     output: {
       target: './src/api/endpoints',
       schemas: './src/api/models',

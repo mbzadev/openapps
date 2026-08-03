@@ -57,20 +57,20 @@ function usePageTitle(app: AppDetailResource | null) {
 
   useEffect(() => {
     const path = location.pathname
-    let title = 'AppStoreCat'
+    let title = 'OpenApps by MBZA'
 
-    if (path === '/discovery/apps') title = 'Discover Apps — AppStoreCat'
-    else if (path === '/discovery/publishers') title = 'Discover Publishers — AppStoreCat'
-    else if (path === '/discovery/trending') title = 'Trending — AppStoreCat'
-    else if (path === '/apps') title = 'Apps — AppStoreCat'
-    else if (path === '/changes/apps') title = 'App Changes — AppStoreCat'
-    else if (path === '/changes/competitors') title = 'Competitor Changes — AppStoreCat'
-    else if (path === '/publishers' || path.startsWith('/publishers/')) title = 'Publishers — AppStoreCat'
-    else if (path === '/competitors') title = 'Competitors — AppStoreCat'
-    else if (path === '/explorer/screenshots') title = 'Screenshots — AppStoreCat'
-    else if (path === '/explorer/icons') title = 'App Icons — AppStoreCat'
-    else if (path === '/settings') title = 'Settings — AppStoreCat'
-    else if (app?.name) title = `${app.name} — AppStoreCat`
+    if (path === '/discovery/apps') title = 'Discover Apps — OpenApps by MBZA'
+    else if (path === '/discovery/publishers') title = 'Discover Publishers — OpenApps by MBZA'
+    else if (path === '/discovery/trending') title = 'Trending — OpenApps by MBZA'
+    else if (path === '/apps') title = 'Apps — OpenApps by MBZA'
+    else if (path === '/changes/apps') title = 'App Changes — OpenApps by MBZA'
+    else if (path === '/changes/competitors') title = 'Competitor Changes — OpenApps by MBZA'
+    else if (path === '/publishers' || path.startsWith('/publishers/')) title = 'Publishers — OpenApps by MBZA'
+    else if (path === '/competitors') title = 'Competitors — OpenApps by MBZA'
+    else if (path === '/explorer/screenshots') title = 'Screenshots — OpenApps by MBZA'
+    else if (path === '/explorer/icons') title = 'App Icons — OpenApps by MBZA'
+    else if (path === '/settings') title = 'Settings — OpenApps by MBZA'
+    else if (app?.name) title = `${app.name} — OpenApps by MBZA`
 
     document.title = title
   }, [location.pathname, app?.name])
@@ -246,7 +246,7 @@ export default function AppLayout() {
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton size="lg" tooltip="AppStoreCat" render={<Link to="/discovery/trending" />}>
+              <SidebarMenuButton size="lg" tooltip="OpenApps by MBZA" render={<Link to="/discovery/trending" />}>
                 <AppLogo />
               </SidebarMenuButton>
             </SidebarMenuItem>

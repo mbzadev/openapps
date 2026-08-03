@@ -1,8 +1,8 @@
-const API_URL = process.env.APPSTORECAT_API_URL || 'http://localhost:7460/api/v1';
-const API_TOKEN = process.env.APPSTORECAT_API_TOKEN || '';
+const API_URL = process.env.OPENAPPS_API_URL || process.env.APPSTORECAT_API_URL || 'https://apps.mbza.dev/api/v1';
+const API_TOKEN = process.env.OPENAPPS_API_TOKEN || process.env.APPSTORECAT_API_TOKEN || '';
 
 if (!API_TOKEN) {
-  console.error('APPSTORECAT_API_TOKEN environment variable is required');
+  console.error('OPENAPPS_API_TOKEN environment variable is required');
   process.exit(1);
 }
 

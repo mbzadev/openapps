@@ -14,29 +14,24 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: localStorage.getItem('token'),
+  token: null,
   user: null,
   isLoading: true,
 
   login: async (email, password) => {
     const data = await login({ email, password })
-    const token = data.token ?? ''
-    localStorage.setItem('token', token)
-    set({ token, user: data.user ?? null, isLoading: false })
+    set({ token: 'session', user: data.user ?? null, isLoading: false })
   },
 
   register: async (name, email, password, password_confirmation) => {
     const data = await register({ name, email, password, password_confirmation })
-    const token = data.token ?? ''
-    localStorage.setItem('token', token)
-    set({ token, user: data.user ?? null, isLoading: false })
+    set({ token: 'session', user: data.user ?? null, isLoading: false })
   },
 
   logout: async () => {
     try {
       await logout()
     } finally {
-      localStorage.removeItem('token')
       set({ token: null, user: null })
       window.location.href = '/'
     }
@@ -44,21 +39,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   fetchUser: async () => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        set({ isLoading: false })
-        return
-      }
       const data = await me()
-      set({ user: data, isLoading: false })
+      set({ token: 'session', user: data, isLoading: false })
     } catch {
-      localStorage.removeItem('token')
       set({ token: null, user: null, isLoading: false })
     }
   },
 
   reset: () => {
-    localStorage.removeItem('token')
     set({ token: null, user: null, isLoading: false })
   },
 }))

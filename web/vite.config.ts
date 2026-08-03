@@ -8,7 +8,7 @@ function readRepoVersion(): string {
   // Two candidate locations:
   //   - ../VERSION : repo layout on the host (npm run build outside Docker)
   //   - /VERSION   : compose mount for the dev container (web/'s ../ is /, not the repo root)
-  const candidates = [path.resolve(__dirname, '..', 'VERSION'), '/VERSION']
+  const candidates = [path.resolve(import.meta.dirname, '..', 'VERSION'), '/VERSION']
   for (const versionFile of candidates) {
     try {
       if (existsSync(versionFile)) return readFileSync(versionFile, 'utf8').trim()
@@ -21,7 +21,7 @@ function readRepoVersion(): string {
 
 function runtimeConfigPlugin(): Plugin {
   return {
-    name: 'appstorecat-runtime-config',
+    name: 'openapps-runtime-config',
     configureServer(server) {
       server.middlewares.use('/config.js', (_req, res) => {
         const apiUrl = process.env.BACKEND_API_URL ?? ''
@@ -46,7 +46,7 @@ export default defineConfig(({ command }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
       },
     },
     server: {

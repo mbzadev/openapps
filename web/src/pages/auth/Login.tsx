@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ interface ValidationErrors {
 
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const token = useAuthStore((s) => s.token)
   const login = useAuthStore((s) => s.login)
   const [email, setEmail] = useState('')
@@ -33,7 +34,9 @@ export default function Login() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/discovery/trending')
+      const returnTo = searchParams.get('return_to')
+      if (returnTo && new URL(returnTo, window.location.origin).origin === window.location.origin) window.location.href = returnTo
+      else navigate('/discovery/trending')
     } catch (err) {
       if (err instanceof AxiosError && err.response?.status === 422) {
         const data = err.response.data

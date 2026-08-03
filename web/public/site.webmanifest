@@ -1,6 +1,6 @@
 {
-  "name": "AppStoreCat",
-  "short_name": "AppStoreCat",
+  "name": "OpenApps by MBZA",
+  "short_name": "OpenApps",
   "description": "Open source app intelligence toolkit for iOS and Android",
   "start_url": "/",
   "display": "standalone",

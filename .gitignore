@@ -21,6 +21,8 @@
 /backups/
 *.sql
 *.sql.gz
+!/migrations/
+!/migrations/*.sql
 
 # Server (Laravel)
 /server/appgenome
@@ -43,6 +45,12 @@
 # Web
 /web/node_modules
 /web/dist
+/node_modules
+/node_modules/
+**/node_modules/
+/packages/*/dist/
+/mcp/dist/
+/workers/*/dist
 
 # Google Play Scraper
 /scraper-android/__pycache__

@@ -3,7 +3,7 @@ Allow: /
 Disallow: /api/
 Disallow: /mcp
 
-Sitemap: https://appstore.cat/sitemap.xml
+Sitemap: https://apps.mbza.dev/sitemap.xml
 
 # AI Crawlers
 User-agent: GPTBot

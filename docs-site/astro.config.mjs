@@ -2,9 +2,9 @@
 import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 
-const SITE = process.env.DOCS_SITE_URL || 'https://appstorecat.github.io'
-const BASE = process.env.DOCS_SITE_BASE || '/appstorecat'
-const REPO = 'https://github.com/appstorecat/appstorecat'
+const SITE = process.env.DOCS_SITE_URL || 'https://apps.mbza.dev'
+const BASE = process.env.DOCS_SITE_BASE || '/docs'
+const REPO = 'https://github.com/mbzadev/openapps'
 
 export default defineConfig({
   site: SITE,
@@ -17,9 +17,9 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: 'AppStoreCat',
+      title: 'OpenApps by MBZA',
       description:
-        'Open-source, self-hosted App Store & Google Play intelligence — with a 28-tool MCP server for Claude Code.',
+        'Cloudflare-native App Store and Google Play intelligence with a 29-tool MCP server.',
       logo: {
         light: './src/assets/logo.svg',
         dark: './src/assets/logo.svg',
@@ -28,10 +28,9 @@ export default defineConfig({
       favicon: '/favicon.ico',
       social: [
         { icon: 'github', label: 'GitHub', href: REPO },
-        { icon: 'npm', label: 'npm (@appstorecat/mcp)', href: 'https://www.npmjs.com/package/@appstorecat/mcp' },
       ],
       editLink: {
-        baseUrl: `${REPO}/edit/master/docs-site/`,
+        baseUrl: `${REPO}/edit/main/docs-site/`,
       },
       lastUpdated: true,
       pagination: true,
@@ -55,29 +54,17 @@ export default defineConfig({
           items: [
             // Installation is the docs homepage (slug is '').
             { label: 'Installation', slug: '' },
-            { label: 'Install Script', slug: 'getting-started/install-script' },
-            { label: 'Configuration', slug: 'getting-started/configuration' },
-            { label: 'Quick Start', slug: 'getting-started/quick-start' },
           ],
         },
         {
           label: 'Architecture',
           items: [
             { label: 'Overview', slug: 'architecture/overview' },
-            { label: 'Data Model', slug: 'architecture/data-model' },
-            { label: 'Data Collection', slug: 'architecture/data-collection' },
-            { label: 'Queue System', slug: 'architecture/queue-system' },
-            { label: 'Connectors', slug: 'architecture/connectors' },
-            { label: 'Sync Pipeline', slug: 'architecture/sync-pipeline' },
           ],
         },
         {
-          label: 'Services',
+          label: 'MCP',
           items: [
-            { label: 'Server', slug: 'services/server' },
-            { label: 'Web', slug: 'services/web' },
-            { label: 'App Store Scraper', slug: 'services/scraper-ios' },
-            { label: 'Google Play Scraper', slug: 'services/scraper-android' },
             {
               label: 'MCP Server',
               slug: 'services/mcp',
@@ -86,42 +73,22 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Features',
-          items: [
-            { label: 'Trending Charts', slug: 'features/trending-charts' },
-            { label: 'App Rankings', slug: 'features/app-rankings' },
-            { label: 'App Discovery', slug: 'features/app-discovery' },
-            { label: 'Store Listings', slug: 'features/store-listings' },
-            { label: 'Ratings', slug: 'features/ratings' },
-            { label: 'Keyword Density', slug: 'features/keyword-density' },
-            { label: 'Competitor Tracking', slug: 'features/competitor-tracking' },
-            { label: 'Change Detection', slug: 'features/change-detection' },
-            { label: 'Publisher Discovery', slug: 'features/publisher-discovery' },
-            { label: 'Media & Explorer', slug: 'features/media-proxy' },
-          ],
-        },
-        {
           label: 'API',
           items: [
             { label: 'Endpoints', slug: 'api/endpoints' },
             { label: 'Authentication', slug: 'api/authentication' },
-            { label: 'Scraper APIs', slug: 'api/scraper-apis' },
           ],
         },
         {
           label: 'Deployment',
           items: [
-            { label: 'Docker', slug: 'deployment/docker' },
-            { label: 'Production', slug: 'deployment/production' },
-            { label: 'Troubleshooting', slug: 'deployment/troubleshooting' },
+            { label: 'Cloudflare', slug: 'deployment/cloudflare' },
           ],
         },
         {
           label: 'Reference',
           items: [
             { label: 'Environment Variables', slug: 'reference/environment-variables' },
-            { label: 'Makefile Commands', slug: 'reference/makefile-commands' },
-            { label: 'App Store Countries', slug: 'reference/app-store-countries' },
           ],
         },
       ],

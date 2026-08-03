@@ -1,135 +1,16 @@
-# Installation
+# OpenApps by MBZA
 
-## Requirements
+OpenApps by MBZA is a Cloudflare-native App Store and Google Play intelligence platform available at [apps.mbza.dev](https://apps.mbza.dev).
 
-- **Docker** (v20+) and **Docker Compose** (v2+)
-- **Git**
-- 4 GB+ RAM recommended (MySQL + Redis + 4 services)
+Create an account in the browser. No server, database or container needs to be installed: the React application, API and MCP endpoint run on Cloudflare Workers; D1, KV, R2, Queues and Durable Objects provide the data plane.
 
-## Clone the Repository
+For local development:
 
 ```bash
-git clone https://github.com/appstorecat/appstorecat.git
-cd appstorecat
+npm ci
+npm run cf:migrate:local
+npm run build:web-assets
+npm run dev -w @openapps/web-worker
 ```
 
-## Setup
-
-Run setup with a single command:
-
-```bash
-make setup
-```
-
-This command:
-
-1. **Builds** all Docker containers (`server`, `web`, `scraper-ios`, `scraper-android`, `mysql`, `redis`)
-2. **Installs** dependencies (Composer for the server, npm for web and the App Store scraper)
-3. **Generates** the Laravel `APP_KEY`
-4. **Runs** the database migrations
-
-## Start the Services
-
-```bash
-make dev
-```
-
-All services will start in the background:
-
-| Service | URL | Description |
-|---------|-----|-------------|
-| Backend API | http://localhost:7460 | Laravel API gateway |
-| Frontend | http://localhost:7461 | React SPA |
-| App Store Scraper | http://localhost:7462 | iOS data source |
-| Google Play Scraper | http://localhost:7463 | Android data source |
-| MySQL | localhost:7464 | Database (host-side; container is `:3306`) |
-| Redis | localhost:7465 | Cache & queue (host-side; container is `:6379`) |
-
-## Verify the Setup
-
-Check that all services are running:
-
-```bash
-make ps
-```
-
-You should see 6 healthy containers: `appstorecat-server`, `appstorecat-web`, `appstorecat-scraper-ios`, `appstorecat-scraper-android`, `appstorecat-mysql`, `appstorecat-redis`.
-
-Visit http://localhost:7461 to reach the frontend.
-
-## Seed Store Categories
-
-After setup, seed the store categories (App Store and Google Play categories):
-
-```bash
-make seed
-```
-
-## Run the Test Suite
-
-AppStoreCat ships with a Pest test suite (47 files, 400+ tests). The runner uses a separate database, `appstorecat_testing`, which must exist before the first run.
-
-One-time setup:
-
-```bash
-make mysql
-# inside the MySQL shell:
-CREATE DATABASE appstorecat_testing;
-exit
-```
-
-Then run:
-
-```bash
-make test                                     # full suite
-make test EXTRA_ARGS="--filter=KeywordTest"   # focused run
-```
-
-`make test` runs `php artisan test` inside the server container. Composer dev dependencies (`pestphp/pest`, `pestphp/pest-plugin-laravel`, `fakerphp/faker`) are installed automatically by `make setup`.
-
-## Stop the Services
-
-```bash
-make down
-```
-
-## Start Services Individually
-
-If you only need specific services:
-
-```bash
-make dev-server    # Backend + MySQL + Redis
-make dev-web   # Frontend only
-make dev-ios   # App Store scraper only
-make dev-android      # Google Play scraper only
-```
-
-## Troubleshooting
-
-### Port Conflicts
-
-Default ports are in the **7460–7465** range. If any port is in use, change it by editing the `.env` file at the project root.
-
-### Database Connection Issues
-
-If the backend cannot connect to MySQL, wait a few seconds for the health check to pass:
-
-```bash
-docker compose logs appstorecat-mysql
-```
-
-### Clean Install
-
-To remove all containers and volumes and start from scratch:
-
-```bash
-make clean    # Remove containers and volumes
-make setup    # Rebuild everything
-```
-
-For a full reset including local Docker images:
-
-```bash
-make nuke     # Remove everything, images included
-make setup
-```
+Production is deployed from the `main` branch through Cloudflare Builds.

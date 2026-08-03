@@ -5,15 +5,15 @@ import { registerAllTools } from './register.js';
 
 const server = new McpServer(
   {
-    name: 'appstorecat',
-    version: '1.0.0',
+    name: 'openapps-by-mbza',
+    version: '2.0.0',
   },
   {
     instructions:
-      'AppStoreCat — App Store & Google Play intelligence toolkit. ' +
+      'OpenApps by MBZA — App Store & Google Play intelligence toolkit. ' +
       'Search apps, track competitors, monitor store listing changes, ' +
       'analyze user reviews, explore trending charts, and discover publishers. ' +
-      'All tools are read-only.',
+      'The server exposes 29 tools: 25 read and 4 write tools.',
   },
 );
 

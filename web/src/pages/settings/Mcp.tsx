@@ -14,9 +14,10 @@ import { Copy, Check, Terminal } from 'lucide-react'
 
 type Mode = 'prod' | 'dev'
 
-const PROD_URL = 'https://server.appstore.cat/api/v1'
-const DEV_URL = 'http://localhost:7460/api/v1'
-const DEV_MCP_PATH = '/Users/ismail/Projects/laravel/appstorecat/mcp/dist/index.js'
+const PROD_URL = 'https://apps.mbza.dev/api/v1'
+const REMOTE_MCP_URL = 'https://apps.mbza.dev/mcp'
+const DEV_URL = 'http://localhost:8787/api/v1'
+const DEV_MCP_PATH = './mcp/dist/index.js'
 
 export default function Mcp() {
   const [mode, setMode] = useState<Mode>('prod')
@@ -35,34 +36,27 @@ export default function Mcp() {
 
   const cliCommand =
     mode === 'prod'
-      ? `claude mcp add appstorecat \\
-  -e APPSTORECAT_API_URL="${displayUrl}" \\
-  -e APPSTORECAT_API_TOKEN="${displayToken}" \\
-  -- npx -y @appstorecat/mcp`
-      : `claude mcp add appstorecat \\
-  -e APPSTORECAT_API_URL="${displayUrl}" \\
-  -e APPSTORECAT_API_TOKEN="${displayToken}" \\
+      ? `claude mcp add --transport http openapps ${REMOTE_MCP_URL}`
+      : `claude mcp add openapps \\
+  -e OPENAPPS_API_URL="${displayUrl}" \\
+  -e OPENAPPS_API_TOKEN="${displayToken}" \\
   -- node ${DEV_MCP_PATH}`
 
   const jsonConfig = JSON.stringify(
     {
       mcpServers: {
-        appstorecat:
+        openapps:
           mode === 'prod'
             ? {
-                command: 'npx',
-                args: ['-y', '@appstorecat/mcp'],
-                env: {
-                  APPSTORECAT_API_URL: displayUrl,
-                  APPSTORECAT_API_TOKEN: displayToken,
-                },
+                type: 'http',
+                url: REMOTE_MCP_URL,
               }
             : {
                 command: 'node',
                 args: [DEV_MCP_PATH],
                 env: {
-                  APPSTORECAT_API_URL: displayUrl,
-                  APPSTORECAT_API_TOKEN: displayToken,
+                  OPENAPPS_API_URL: displayUrl,
+                  OPENAPPS_API_TOKEN: displayToken,
                 },
               },
       },
@@ -85,7 +79,7 @@ export default function Mcp() {
           <CardHeader>
             <CardTitle>What is MCP?</CardTitle>
             <CardDescription>
-              Model Context Protocol (MCP) lets AI tools like Claude Code access your AppStoreCat data directly.
+              Model Context Protocol (MCP) lets AI tools like Claude Code access your OpenApps by MBZA data directly.
               Ask questions like "What are Instagram's latest store changes?" and get answers from your tracked data.
             </CardDescription>
           </CardHeader>
@@ -95,8 +89,7 @@ export default function Mcp() {
           <CardHeader>
             <CardTitle>1. Generate Your MCP Config</CardTitle>
             <CardDescription>
-              Enter your API URL and token to generate ready-to-use configuration.
-              Create a token in{' '}
+              Production uses OAuth automatically. API URL and token are only needed for the optional local stdio client. Create a token in{' '}
               <a href="/settings/api-tokens" className="underline">API Keys</a> if you don't have one.
             </CardDescription>
           </CardHeader>
@@ -105,7 +98,7 @@ export default function Mcp() {
               <Label htmlFor="api_url">API URL</Label>
               <Input
                 id="api_url"
-                placeholder="https://server.appstore.cat/api/v1"
+                placeholder="https://apps.mbza.dev/api/v1"
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
               />
@@ -123,7 +116,7 @@ export default function Mcp() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 {mode === 'prod'
-                  ? 'Runs the published @appstorecat/mcp package via npx.'
+                  ? 'Connects directly to the remote OAuth MCP endpoint.'
                   : `Runs the local build from ${DEV_MCP_PATH}. Remember to run \`npm run build\` in the mcp folder.`}
               </p>
             </div>
@@ -164,7 +157,7 @@ export default function Mcp() {
               Already configured? Remove first, then re-add:
             </p>
             <pre className="rounded-md bg-muted p-4 text-sm font-mono overflow-x-auto whitespace-pre-wrap text-muted-foreground">
-              {`claude mcp remove appstorecat`}
+              {`claude mcp remove openapps`}
             </pre>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Terminal className="h-3 w-3" />

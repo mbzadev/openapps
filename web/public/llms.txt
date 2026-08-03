@@ -1,103 +1,11 @@
-# AppStoreCat
+# OpenApps by MBZA
 
-> Open-source, self-hosted App Store & Google Play intelligence toolkit — with a 32-tool MCP server for Claude Code, Cursor, and other AI tools.
+OpenApps by MBZA is a Cloudflare-native App Store and Google Play intelligence platform.
 
-AppStoreCat is a free, MIT-licensed alternative to commercial app intelligence platforms (Sensor Tower, data.ai, AppFollow) that you run on your own infrastructure. Track competitor store listings on iOS and Android, monitor every change, analyze keywords, follow trending charts, and query everything from natural language via MCP.
+- Web: https://apps.mbza.dev
+- API: https://apps.mbza.dev/api/v1
+- Docs: https://apps.mbza.dev/docs
+- MCP: https://apps.mbza.dev/mcp
+- Source: https://github.com/mbzadev/openapps
 
-## Quick Start
-
-Install in ~60 seconds with Docker, git, make, and curl:
-
-```
-curl -sSL https://appstore.cat/install.sh | sh
-```
-
-Or manually:
-
-```
-git clone https://github.com/appstorecat/appstorecat.git
-cd appstorecat
-cp .env.development.example .env
-make setup && make dev
-```
-
-Then open http://localhost:7461.
-
-## MCP Quick Start
-
-Connect to Claude Code:
-
-```
-claude mcp add appstorecat \
-  -e APPSTORECAT_API_URL=http://localhost:7460/api/v1 \
-  -e APPSTORECAT_API_TOKEN=<token-from-web-ui> \
-  -- npx -y @appstorecat/mcp
-```
-
-The MCP server exposes 32 tools — 28 read-only + 4 write (track_app, untrack_app, add_competitor, remove_competitor) — covering apps, competitors, changes, charts, ratings, keywords, publishers, explorer, dashboard, and reference. Every tool is Swagger-strict (zod inputs mirror the OpenAPI parameters exactly) and chain-first (response IDs are preserved so multi-step lookups can be planned). Write tools carry MCP write hints, so Claude Code asks for confirmation before invoking them.
-
-Example natural-language queries:
-- "What changed on ChatGPT's App Store listing this week?"
-- "Top 3 trending free iOS apps in the US?"
-- "Compare keyword density between Threads and Instagram."
-- "Which competitor changed their App Store screenshots this week?"
-
-## Architecture
-
-Four Docker services orchestrated via Docker Compose, owned by a single Laravel server that owns the database. Scrapers are stateless (no DB, no cache). iOS and Android pipelines are platform-separated — independent queues, throttles, and worker profiles so neither blocks the other.
-
-```
-Web :7461 ──▶ Server API :7460 ──▶ scraper-ios :7462
-                  │           ──▶ scraper-android :7463
-                  ▼
-              MySQL :7464  +  Redis :6379
-```
-
-| Service | Stack |
-|---|---|
-| server | Laravel 13, PHP 8.4, Sanctum, L5-Swagger |
-| web | React 19, Vite, TypeScript, shadcn/ui, Tailwind v4 |
-| scraper-ios | Fastify 5, Node.js, app-store-scraper |
-| scraper-android | FastAPI, Python, gplay-scraper |
-| mcp | MCP SDK, TypeScript (npm: @appstorecat/mcp) |
-
-## Features
-
-- **Trending charts** — Daily snapshots of top free, paid, and grossing apps across both stores with historical rank data
-- **App rankings** — Per-app pivot of chart positions across countries, collections, and categories
-- **App discovery** — Search both stores, browse trending charts, import publisher catalogs
-- **Store listings** — Multi-locale listing tracking with per-country availability
-- **Ratings** — Per-country rating history with daily star breakdown
-- **Keyword density** — 1/2/3-gram extraction, 50-language stop-word filter, cross-app comparison up to 5 apps (computed on the fly, not persisted)
-- **Change detection** — Automatic per-locale, per-field diffs (title, subtitle, description, screenshots, version, locale, price)
-- **Competitor tracking** — Manual and automatic competitor relationships, side-by-side monitoring
-- **Publisher discovery** — Search publishers, view full app catalogs, bulk import
-- **MCP server** — 32-tool surface (28 read + 4 write) for Claude Code, Cursor, Continue, and other MCP-compatible AI tools. Write tools require explicit user confirmation.
-- **Self-hosted** — Your data, your servers, no telemetry, no per-app pricing
-
-## Documentation
-
-- Installation: https://github.com/appstorecat/appstorecat/blob/master/docs/en/getting-started/installation.md
-- Install Script: https://github.com/appstorecat/appstorecat/blob/master/docs/en/getting-started/install-script.md
-- Configuration: https://github.com/appstorecat/appstorecat/blob/master/docs/en/getting-started/configuration.md
-- Quick Start: https://github.com/appstorecat/appstorecat/blob/master/docs/en/getting-started/quick-start.md
-- Architecture Overview: https://github.com/appstorecat/appstorecat/blob/master/docs/en/architecture/overview.md
-- Data Model: https://github.com/appstorecat/appstorecat/blob/master/docs/en/architecture/data-model.md
-- Sync Pipeline: https://github.com/appstorecat/appstorecat/blob/master/docs/en/architecture/sync-pipeline.md
-- Queue System: https://github.com/appstorecat/appstorecat/blob/master/docs/en/architecture/queue-system.md
-- MCP Server: https://github.com/appstorecat/appstorecat/blob/master/docs/en/services/mcp.md
-- API Endpoints: https://github.com/appstorecat/appstorecat/blob/master/docs/en/api/endpoints.md
-- API Authentication: https://github.com/appstorecat/appstorecat/blob/master/docs/en/api/authentication.md
-- Production Deployment: https://github.com/appstorecat/appstorecat/blob/master/docs/en/deployment/production.md
-- Environment Variables: https://github.com/appstorecat/appstorecat/blob/master/docs/en/reference/environment-variables.md
-
-## Links
-
-- Website / Live Demo: https://appstore.cat
-- Source Code: https://github.com/appstorecat/appstorecat
-- MCP Package on npm: https://www.npmjs.com/package/@appstorecat/mcp
-- Docker Images: https://ghcr.io/appstorecat
-- Changelog: https://github.com/appstorecat/appstorecat/blob/master/CHANGELOG.md
-- Issues: https://github.com/appstorecat/appstorecat/issues
-- License: MIT (https://github.com/appstorecat/appstorecat/blob/master/LICENSE)
-- Current Version: v1.2.0 (released 2026-04-22)
+The MCP endpoint offers 29 tools: 25 read and four write. It uses OAuth 2.1 with `openapps:read` and `openapps:write` scopes. The runtime consists only of Cloudflare Workers, D1, KV, R2, Queues and Durable Objects.

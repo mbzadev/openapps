@@ -1,0 +1,38 @@
+{
+  "name": "openapps-by-mbza",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "workers/*",
+    "web",
+    "docs-site",
+    "mcp"
+  ],
+  "scripts": {
+    "build": "npm run openapi && npm run build -w @openapps/web-worker && npm run build -w @openapps/jobs-worker && npm run build:web-assets",
+    "build:web-assets": "npm run build -w frontend && npm run sync-docs -w @openapps/docs-site && npm run build -w @openapps/docs-site && node scripts/merge-docs.mjs",
+    "check": "npm run typecheck && npm run test",
+    "openapi": "node --experimental-strip-types scripts/generate-openapi.mjs",
+    "typecheck": "npm run typecheck -w @openapps/core && npm run typecheck -w @openapps/contracts && npm run typecheck -w @openapps/scrapers && npm run typecheck -w @openapps/web-worker && npm run typecheck -w @openapps/jobs-worker && npm run typecheck -w frontend",
+    "test": "vitest run",
+    "cf:types": "npm run cf:types -w @openapps/web-worker && npm run cf:types -w @openapps/jobs-worker",
+    "cf:dry-run": "npm run deploy:dry -w @openapps/web-worker && npm run deploy:dry -w @openapps/jobs-worker",
+    "cf:migrate:local": "wrangler d1 migrations apply openapps-production --local --config workers/web/wrangler.jsonc",
+    "cf:migrate:remote": "wrangler d1 migrations apply openapps-production --remote --config workers/web/wrangler.jsonc",
+    "cf:migrate:preview": "wrangler d1 migrations apply openapps-preview --remote --env preview --config workers/web/wrangler.jsonc",
+    "deploy:web": "npm run build:web-assets && npm run cf:migrate:remote && npm run deploy -w @openapps/web-worker",
+    "deploy:jobs": "npm run deploy -w @openapps/jobs-worker"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.20.1",
+    "@cloudflare/workers-types": "5.20260801.1",
+    "typescript": "^6.0.2",
+    "vitest": "4.1.10",
+    "wrangler": "4.118.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

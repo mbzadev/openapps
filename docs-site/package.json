@@ -1,9 +1,9 @@
 {
-  "name": "@appstorecat/docs-site",
-  "version": "1.2.0",
+  "name": "@openapps/docs-site",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "AppStoreCat documentation site (Astro + Starlight)",
+  "description": "OpenApps by MBZA documentation site",
   "scripts": {
     "dev": "astro dev --host",
     "build": "astro build",
