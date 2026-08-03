@@ -46,6 +46,44 @@ describe('store adapters', () => {
     expect(app).toMatchObject({ platform: 'ios', external_id: '123', name: 'Example', rating: 4.7, is_free: true, version: '2.0' })
   })
 
+  it('falls back to server-rendered App Store search data when iTunes is throttled', async () => {
+    const serialized = JSON.stringify({ data: [{ data: { shelves: [{ items: [{ lockup: {
+      adamId: '389801252', title: 'Instagram', subtitle: 'Videos and friends', developerName: 'Instagram, Inc.',
+      rating: 4.7, ratingCount: '29M', ageRating: '13+', icon: { template: 'https://img/{w}x{h}{c}.{f}' },
+      offerDisplayProperties: { isFree: true }, buttonAction: { purchaseConfiguration: { buyParams: 'price=0' } },
+      clickAction: { pageUrl: 'https://apps.apple.com/us/app/instagram/id389801252' },
+    } }] }] } }] })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('throttled', { status: 429 }))
+      .mockResolvedValueOnce(new Response(`<script type="application/json" id="serialized-server-data">${serialized}</script>`))
+    vi.stubGlobal('fetch', fetchMock)
+    const apps = await new AppleScraper().search('Instagram', 'us', 10)
+    expect(apps).toHaveLength(1)
+    expect(apps[0]).toMatchObject({ external_id: '389801252', name: 'Instagram', publisher_name: 'Instagram, Inc.', rating_count: 29_000_000, is_free: true })
+    expect(fetchMock.mock.calls[1]?.[0]).toContain('apps.apple.com/us/iphone/search')
+  })
+
+  it('falls back to server-rendered App Store product data for lookups', async () => {
+    const information = (title: string, value: string, summary?: string) => ({ title, summary, items: [{ text: value }] })
+    const serialized = JSON.stringify({ data: [{ data: {
+      lockup: { adamId: '123', title: 'Example', subtitle: 'Native fallback', rating: 4.8, icon: { template: 'https://img/{w}x{h}{c}.{f}' }, offerDisplayProperties: { isFree: true }, buttonAction: { purchaseConfiguration: { vendor: 'MBZA', buyParams: 'price=0' } } },
+      developerAction: { title: 'MBZA', pageUrl: 'https://apps.apple.com/us/developer/id9', destination: { id: '9' } },
+      shelfMapping: {
+        description: { items: [{ paragraph: { text: 'Description' } }] },
+        productRatings: { items: [{ ratingAverage: 4.8, totalNumberOfRatings: 42 }] },
+        mostRecentVersion: { items: [{ primarySubtitle: 'Version 3.0', secondarySubtitle: '2026-08-01', text: 'Notes' }] },
+        information: { items: [information('Category', 'Utilities'), information('Size', '12 MB'), information('Languages', 'English, French'), information('Age Rating', '', '4+')] },
+        product_media_phone_: { items: [{ screenshot: { template: 'https://screen/{w}x{h}{c}.{f}' } }] },
+      },
+    } }] })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response('throttled', { status: 429 }))
+      .mockResolvedValueOnce(new Response(`<script type="application/json" id="serialized-server-data">${serialized}</script>`)))
+    const app = await new AppleScraper().lookup('123')
+    expect(app).toMatchObject({ external_id: '123', publisher_external_id: '9', category: 'Utilities', version: '3.0', description: 'Description', file_size_bytes: 12_000_000, content_rating: '4+' })
+    expect(app.screenshots).toHaveLength(1)
+  })
+
   it('normalizes Google Play JSON-LD', async () => {
     const html = `<html><script type="application/ld+json">${JSON.stringify({ '@type': 'SoftwareApplication', name: 'Example Android', author: { name: 'MBZA', url: '/store/apps/dev?id=mbza' }, applicationCategory: 'Tools', image: 'https://img', aggregateRating: { ratingValue: '4.5', ratingCount: '100' }, offers: { price: '0', priceCurrency: 'USD' }, description: 'Description' })}</script></html>`
     vi.stubGlobal('fetch', vi.fn(async () => new Response(html, { headers: { 'content-type': 'text/html' } })))

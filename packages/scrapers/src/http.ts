@@ -1,8 +1,8 @@
-const USER_AGENT = 'Mozilla/5.0 (compatible; OpenApps/2.0; +https://apps.mbza.dev)'
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
 export async function fetchBoundedJson<T>(url: string, timeoutMs = 20_000): Promise<T> {
   const response = await fetch(url, {
-    headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
+    headers: { Accept: 'application/json,text/plain,*/*', 'Accept-Language': 'en-US,en;q=0.9', Referer: 'https://apps.apple.com/', 'User-Agent': USER_AGENT },
     signal: AbortSignal.timeout(timeoutMs),
   })
   if (!response.ok) throw new Error(`Upstream ${response.status} for ${new URL(url).hostname}`)
