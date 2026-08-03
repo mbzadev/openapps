@@ -2,38 +2,95 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod/v4'
-import { appResource, errorResponse, loginRequest, registerRequest, user } from '../packages/contracts/src/schemas.ts'
+import {
+  apiTokenCreateRequest, appIdentity, appResource, competitorCreateRequest, errorResponse,
+  folderCreateRequest, folderUpdateRequest, loginRequest, moveToFolderRequest,
+  passwordUpdateRequest, profileDeleteRequest, profileUpdateRequest, publisherImportRequest,
+  registerRequest, user,
+} from '../packages/contracts/src/schemas.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const paths = {}
-const operation = (method, path, tag, summary, requestBody) => {
+const looseObject = z.object({}).loose()
+const looseArray = z.array(looseObject)
+const authResponse = z.object({ token: z.string(), user })
+const folderResource = z.object({ id: z.number().int(), name: z.string(), color: z.string(), sort_order: z.number().int(), apps_count: z.number().int(), created_at: z.string(), updated_at: z.string() })
+const successSchemas = {
+  register: authResponse, login: authResponse, me: user, showProfile: user, updateProfile: user,
+  listApiTokens: looseArray, createApiToken: looseObject,
+  dashboard: looseObject, listFolders: z.array(folderResource), storeFolder: folderResource, updateFolder: folderResource,
+  searchApps: z.array(appResource), listApps: z.array(appResource), storeApp: appResource, showApp: appResource, appListing: looseObject,
+  syncApp: looseObject, appSyncStatus: looseObject, listCompetitors: looseArray, storeCompetitor: looseObject,
+  listAllCompetitors: looseArray, listAppRankings: looseArray, appKeywords: looseObject, compareKeywords: looseObject,
+  getRatingSummary: looseObject, getRatingHistory: looseArray, getRatingCountryBreakdown: looseObject,
+  appChanges: looseObject, competitorChanges: looseObject, getCharts: looseObject,
+  exploreScreenshots: looseObject, exploreIcons: looseObject, listCountries: looseArray, listStoreCategories: looseArray,
+  searchPublishers: looseArray, listPublishers: looseArray, showPublisher: looseObject, publisherStoreApps: looseObject,
+}
+const stringQuery = (name, required = false, extra = {}) => ({ name, in: 'query', required, schema: { type: 'string', ...extra } })
+const integerQuery = (name, required = false, extra = {}) => ({ name, in: 'query', required, schema: { type: 'integer', ...extra } })
+const platformQuery = (required = false) => stringQuery('platform', required, { enum: ['ios', 'android'] })
+const pageQueries = [integerQuery('page', false, { minimum: 1 }), integerQuery('per_page', false, { minimum: 1, maximum: 100 })]
+const changeQueries = [
+  ...pageQueries, stringQuery('field'), platformQuery(), stringQuery('search', false, { maxLength: 100 }),
+  integerQuery('app_id', false, { minimum: 1 }), stringQuery('folder_id'),
+]
+const queryParameters = {
+  listApps: [platformQuery(), stringQuery('search', false, { maxLength: 100 }), stringQuery('folder_id')],
+  appListing: [stringQuery('country_code', true, { minLength: 2, maxLength: 2 }), stringQuery('locale', true, { maxLength: 10 })],
+  listAppRankings: [stringQuery('date', false, { format: 'date' }), stringQuery('collection', false, { enum: ['top_free', 'top_paid', 'top_grossing', 'all'] })],
+  searchApps: [stringQuery('term', true, { minLength: 2, maxLength: 100 }), platformQuery(true), stringQuery('country_code', false, { minLength: 2, maxLength: 2 }), { name: 'exclude_external_ids[]', in: 'query', required: false, schema: { type: 'array', items: { type: 'string' } } }],
+  listAllCompetitors: [platformQuery(), stringQuery('search', false, { maxLength: 100 }), stringQuery('folder_id')],
+  appKeywords: [stringQuery('locale'), integerQuery('ngram', false, { minimum: 1, maximum: 4 }), integerQuery('version_id', false, { minimum: 1 }), stringQuery('search', false, { maxLength: 100 }), stringQuery('sort', false, { enum: ['keyword', 'count', 'density'] }), stringQuery('order', false, { enum: ['asc', 'desc'] }), integerQuery('per_page', false, { minimum: 1, maximum: 500 }), integerQuery('page', false, { minimum: 1 })],
+  compareKeywords: [{ name: 'app_ids[]', in: 'query', required: true, schema: { type: 'array', minItems: 1, maxItems: 5, items: { type: 'integer', minimum: 1 } } }, stringQuery('locale'), integerQuery('ngram', false, { minimum: 1, maximum: 4 })],
+  getRatingHistory: [integerQuery('days', false, { minimum: 1, maximum: 90 })],
+  appChanges: changeQueries,
+  competitorChanges: changeQueries,
+  getCharts: [platformQuery(true), stringQuery('collection', true, { enum: ['top_free', 'top_paid', 'top_grossing'] }), stringQuery('country_code', false, { minLength: 2, maxLength: 2, default: 'us' }), integerQuery('category_id', false, { minimum: 1 })],
+  exploreScreenshots: [platformQuery(), integerQuery('category_id', false, { minimum: 1 }), stringQuery('search'), ...pageQueries],
+  exploreIcons: [platformQuery(), integerQuery('category_id', false, { minimum: 1 }), stringQuery('search'), ...pageQueries],
+  listStoreCategories: [platformQuery(), stringQuery('type', false, { enum: ['app', 'game', 'magazine'] })],
+  searchPublishers: [stringQuery('term', true, { minLength: 2 }), platformQuery(true), stringQuery('country_code', false, { minLength: 2, maxLength: 2 })],
+  showPublisher: [stringQuery('name')],
+  publisherStoreApps: [stringQuery('country_code', false, { minLength: 2, maxLength: 2 })],
+}
+const operation = (method, path, tag, summary, operationId, requestBody, options = {}) => {
   paths[path] ??= {}
+  const parameters = [...path.matchAll(/\{([^}]+)\}/g)].map(([, name]) => ({
+    name, in: 'path', required: true,
+    schema: name === 'platform' ? { type: 'string', enum: ['ios', 'android'] } : name === 'tokenId' || name === 'folder' || name === 'competitor' ? { type: 'integer', minimum: 1 } : { type: 'string' },
+  })).concat(queryParameters[operationId] ?? [])
+  const successStatus = options.status ?? 200
+  const successResponse = successStatus === 204
+    ? { description: 'No content' }
+    : { description: 'Success', content: { 'application/json': { schema: z.toJSONSchema(successSchemas[operationId] ?? looseObject) } } }
   paths[path][method.toLowerCase()] = {
-    tags: [tag], summary,
-    security: path.startsWith('/auth/') ? [] : [{ bearerAuth: [] }, { cookieAuth: [] }],
+    tags: [tag], summary, operationId,
+    security: options.public ? [] : [{ bearerAuth: [] }, { cookieAuth: [] }],
+    ...(parameters.length ? { parameters } : {}),
     ...(requestBody ? { requestBody: { required: true, content: { 'application/json': { schema: z.toJSONSchema(requestBody) } } } } : {}),
-    responses: { 200: { description: 'Success' }, 401: { description: 'Unauthenticated', content: { 'application/json': { schema: z.toJSONSchema(errorResponse) } } }, 422: { description: 'Validation error' } },
+    responses: { [successStatus]: successResponse, 401: { description: 'Unauthenticated', content: { 'application/json': { schema: z.toJSONSchema(errorResponse) } } }, 422: { description: 'Validation error', content: { 'application/json': { schema: z.toJSONSchema(errorResponse) } } } },
   }
 }
 
-operation('post', '/auth/register', 'Auth', 'Register a public account', registerRequest)
-operation('post', '/auth/login', 'Auth', 'Login and create a secure browser session', loginRequest)
-operation('post', '/auth/logout', 'Auth', 'Revoke the current session')
-operation('get', '/auth/me', 'Auth', 'Current user')
-for (const [method, path, tag, summary] of [
-  ['get','/account/profile','Account','Show profile'],['patch','/account/profile','Account','Update profile'],['delete','/account/profile','Account','Delete profile'],['put','/account/password','Account','Update password'],
-  ['get','/account/api-tokens','Account','List API tokens'],['post','/account/api-tokens','Account','Create API token'],['delete','/account/api-tokens/{tokenId}','Account','Delete API token'],
-  ['get','/dashboard','Dashboard','Dashboard'],['get','/folders','Folders','List folders'],['post','/folders','Folders','Create folder'],['patch','/folders/{folder}','Folders','Update folder'],['delete','/folders/{folder}','Folders','Delete folder'],
-  ['get','/apps/search','Apps','Search store apps'],['get','/apps','Apps','List tracked apps'],['post','/apps','Apps','Import app'],['get','/apps/{platform}/{externalId}','Apps','App detail'],['get','/apps/{platform}/{externalId}/listing','Apps','Store listing'],
-  ['patch','/apps/{platform}/{externalId}/folder','Apps','Move app'],['post','/apps/{platform}/{externalId}/track','Apps','Track app'],['delete','/apps/{platform}/{externalId}/track','Apps','Untrack app'],
-  ['get','/apps/{platform}/{externalId}/competitors','Competitors','List competitors'],['post','/apps/{platform}/{externalId}/competitors','Competitors','Add competitor'],['delete','/apps/{platform}/{externalId}/competitors/{competitor}','Competitors','Remove competitor'],
-  ['get','/apps/{platform}/{externalId}/keywords','Analytics','Keyword density'],['get','/apps/{platform}/{externalId}/keywords/compare','Analytics','Compare keywords'],['get','/apps/{platform}/{externalId}/rankings','Analytics','Rankings'],
-  ['get','/apps/{platform}/{externalId}/ratings/summary','Analytics','Rating summary'],['get','/apps/{platform}/{externalId}/ratings/history','Analytics','Rating history'],['get','/apps/{platform}/{externalId}/ratings/country-breakdown','Analytics','Country ratings'],
-  ['post','/apps/{platform}/{externalId}/sync','Apps','Queue synchronization'],['get','/apps/{platform}/{externalId}/sync-status','Apps','Synchronization status'],['get','/competitors','Competitors','All competitors'],
-  ['get','/changes/apps','Changes','Tracked app changes'],['get','/changes/competitors','Changes','Competitor changes'],['get','/charts','Charts','Trending charts'],
-  ['get','/explorer/screenshots','Explorer','Browse screenshots'],['get','/explorer/icons','Explorer','Browse icons'],['get','/countries','Reference','Countries'],['get','/store-categories','Reference','Store categories'],
-  ['get','/publishers/search','Publishers','Search publishers'],['get','/publishers','Publishers','User publishers'],['get','/publishers/{platform}/{externalId}','Publishers','Publisher detail'],['get','/publishers/{platform}/{externalId}/store-apps','Publishers','Publisher store apps'],['post','/publishers/{platform}/{externalId}/import','Publishers','Import publisher apps'],
-]) operation(method, path, tag, summary)
+operation('post', '/auth/register', 'Auth', 'Register a public account', 'register', registerRequest, { public: true, status: 201 })
+operation('post', '/auth/login', 'Auth', 'Login and create a secure browser session', 'login', loginRequest, { public: true })
+operation('post', '/auth/logout', 'Auth', 'Revoke the current session', 'logout', undefined, { status: 204 })
+operation('get', '/auth/me', 'Auth', 'Current user', 'me')
+for (const [method, path, tag, summary, operationId, requestBody, options] of [
+  ['get','/account/profile','Account','Show profile','showProfile'],['patch','/account/profile','Account','Update profile','updateProfile',profileUpdateRequest],['delete','/account/profile','Account','Delete profile','deleteProfile',profileDeleteRequest,{ status: 204 }],['put','/account/password','Account','Update password','updatePassword',passwordUpdateRequest],
+  ['get','/account/api-tokens','Account','List API tokens','listApiTokens'],['post','/account/api-tokens','Account','Create API token','createApiToken',apiTokenCreateRequest,{ status: 201 }],['delete','/account/api-tokens/{tokenId}','Account','Delete API token','revokeApiToken',undefined,{ status: 204 }],
+  ['get','/dashboard','Dashboard','Dashboard','dashboard'],['get','/folders','Folders','List folders','listFolders'],['post','/folders','Folders','Create folder','storeFolder',folderCreateRequest,{ status: 201 }],['patch','/folders/{folder}','Folders','Update folder','updateFolder',folderUpdateRequest],['delete','/folders/{folder}','Folders','Delete folder','destroyFolder',undefined,{ status: 204 }],
+  ['get','/apps/search','Apps','Search store apps','searchApps'],['get','/apps','Apps','List tracked apps','listApps'],['post','/apps','Apps','Import app','storeApp',appIdentity,{ status: 201 }],['get','/apps/{platform}/{externalId}','Apps','App detail','showApp'],['get','/apps/{platform}/{externalId}/listing','Apps','Store listing','appListing'],
+  ['patch','/apps/{platform}/{externalId}/folder','Apps','Move app','moveAppToFolder',moveToFolderRequest,{ status: 204 }],['post','/apps/{platform}/{externalId}/track','Apps','Track app','trackApp',undefined,{ status: 204 }],['delete','/apps/{platform}/{externalId}/track','Apps','Untrack app','untrackApp',undefined,{ status: 204 }],
+  ['get','/apps/{platform}/{externalId}/competitors','Apps','List competitors','listCompetitors'],['post','/apps/{platform}/{externalId}/competitors','Apps','Add competitor','storeCompetitor',competitorCreateRequest,{ status: 201 }],['delete','/apps/{platform}/{externalId}/competitors/{competitor}','Apps','Remove competitor','deleteCompetitor',undefined,{ status: 204 }],
+  ['get','/apps/{platform}/{externalId}/keywords','Apps','Keyword density','appKeywords'],['get','/apps/{platform}/{externalId}/keywords/compare','Apps','Compare keywords','compareKeywords'],['get','/apps/{platform}/{externalId}/rankings','Apps','Rankings','listAppRankings'],
+  ['get','/apps/{platform}/{externalId}/ratings/summary','Apps','Rating summary','getRatingSummary'],['get','/apps/{platform}/{externalId}/ratings/history','Apps','Rating history','getRatingHistory'],['get','/apps/{platform}/{externalId}/ratings/country-breakdown','Apps','Country ratings','getRatingCountryBreakdown'],
+  ['post','/apps/{platform}/{externalId}/sync','Apps','Queue synchronization','syncApp'],['get','/apps/{platform}/{externalId}/sync-status','Apps','Synchronization status','appSyncStatus'],['get','/competitors','Apps','All competitors','listAllCompetitors'],
+  ['get','/changes/apps','Change Monitor','Tracked app changes','appChanges'],['get','/changes/competitors','Change Monitor','Competitor changes','competitorChanges'],['get','/charts','Charts','Trending charts','getCharts'],
+  ['get','/explorer/screenshots','Explorer','Browse screenshots','exploreScreenshots'],['get','/explorer/icons','Explorer','Browse icons','exploreIcons'],['get','/countries','Countries','Countries','listCountries'],['get','/store-categories','Store Categories','Store categories','listStoreCategories'],
+  ['get','/publishers/search','Publishers','Search publishers','searchPublishers'],['get','/publishers','Publishers','User publishers','listPublishers'],['get','/publishers/{platform}/{externalId}','Publishers','Publisher detail','showPublisher'],['get','/publishers/{platform}/{externalId}/store-apps','Publishers','Publisher store apps','publisherStoreApps'],['post','/publishers/{platform}/{externalId}/import','Publishers','Import publisher apps','importPublisherApps',publisherImportRequest,{ status: 204 }],
+]) operation(method, path, tag, summary, operationId, requestBody, options)
 
 const document = {
   openapi: '3.1.0', info: { title: 'OpenApps by MBZA API', version: '2.0.0', description: 'Cloudflare-native App Store and Google Play intelligence API.' },

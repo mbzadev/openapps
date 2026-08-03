@@ -1,9 +1,22 @@
 import { z } from 'zod/v4'
 
 export const platform = z.enum(['ios', 'android'])
+export const folderColor = z.enum(['slate', 'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'])
 export const registerRequest = z.object({ name: z.string().min(1).max(255), email: z.email(), password: z.string().min(8), password_confirmation: z.string() })
 export const loginRequest = z.object({ email: z.email(), password: z.string() })
+export const profileUpdateRequest = z.object({ name: z.string().min(1).max(255), email: z.email().max(255) })
+export const profileDeleteRequest = z.object({ password: z.string() })
+export const passwordUpdateRequest = z.object({ current_password: z.string(), password: z.string().min(8), password_confirmation: z.string() })
+export const apiTokenCreateRequest = z.object({ name: z.string().min(1).max(255), abilities: z.array(z.string()).optional() })
+export const folderCreateRequest = z.object({ name: z.string().min(1).max(255), color: folderColor, sort_order: z.number().int().optional() })
+export const folderUpdateRequest = z.object({ name: z.string().min(1).max(255).optional(), color: folderColor.optional(), sort_order: z.number().int().optional() })
 export const appIdentity = z.object({ platform, external_id: z.string().min(1) })
+export const moveToFolderRequest = z.object({ folder_id: z.number().int().positive().nullable() })
+export const competitorCreateRequest = z.object({
+  competitor_app_id: z.number().int().positive().optional(), competitor_platform: platform.optional(),
+  competitor_external_id: z.string().min(1).optional(), relationship: z.enum(['direct', 'indirect', 'aspiration']).optional(),
+}).refine((value) => value.competitor_app_id !== undefined || value.competitor_external_id !== undefined)
+export const publisherImportRequest = z.object({ external_ids: z.array(z.string().min(1)).min(1).max(50) })
 export const errorResponse = z.object({ message: z.string(), errors: z.record(z.string(), z.array(z.string())).optional() })
-export const user = z.object({ id: z.number().int(), name: z.string(), email: z.email(), created_at: z.string(), updated_at: z.string() })
+export const user = z.object({ id: z.number().int(), name: z.string(), email: z.email(), email_verified_at: z.string().nullable(), created_at: z.string(), updated_at: z.string() })
 export const appResource = z.object({ id: z.number().int(), name: z.string(), platform, external_id: z.string(), icon_url: z.string().nullable(), rating: z.number().nullable(), rating_count: z.number().int().nullable(), version: z.string().nullable(), is_available: z.boolean(), is_tracked: z.boolean() }).passthrough()

@@ -3,6 +3,8 @@ import { pbkdf2Sync } from 'node:crypto'
 import { hashPassword, jobMessageSchema, randomToken, sha256, verifyPassword } from '../packages/core/src/index.ts'
 import { AppleScraper, GooglePlayScraper } from '../packages/scrapers/src/index.ts'
 import { escapeHtml } from '../workers/web/src/oauth.ts'
+import { appendQueryValue } from '../workers/web/src/mcp.ts'
+import { matchPath } from '../web/src/lib/router.tsx'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -29,6 +31,30 @@ describe('security primitives', () => {
     const [, iterations, salt, derived] = hash.split('$')
     expect(Buffer.from(derived!, 'base64')).toEqual(pbkdf2Sync('correct horse battery staple', Buffer.from(salt!, 'base64'), Number(iterations), 32, 'sha256'))
   }, 20_000)
+})
+
+describe('MCP-compatible query encoding', () => {
+  it('repeats arrays and expands keyed version maps using Laravel-compatible query names', () => {
+    const params = new URLSearchParams()
+    appendQueryValue(params, 'app_ids', [10, 20])
+    appendQueryValue(params, 'version_ids', { 10: 100, 20: 200 })
+    appendQueryValue(params, 'locale', 'en-US')
+    appendQueryValue(params, 'missing', undefined)
+    expect(params.getAll('app_ids')).toEqual(['10', '20'])
+    expect(params.get('version_ids[10]')).toBe('100')
+    expect(params.get('version_ids[20]')).toBe('200')
+    expect(params.get('locale')).toBe('en-US')
+    expect(params.has('missing')).toBe(false)
+  })
+})
+
+describe('native SPA route matching', () => {
+  it('matches exact and decoded dynamic segments without accepting partial paths', () => {
+    expect(matchPath('/apps/:platform/:externalId', '/apps/ios/com.example%2Fencoded')).toEqual({ platform: 'ios', externalId: 'com.example/encoded' })
+    expect(matchPath('/apps/:platform/:externalId', '/apps/ios')).toBeNull()
+    expect(matchPath('/apps', '/apps/ios')).toBeNull()
+    expect(matchPath('*', '/anything')).toEqual({})
+  })
 })
 
 describe('versioned queue messages', () => {

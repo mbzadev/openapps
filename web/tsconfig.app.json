@@ -23,7 +23,8 @@
 
     /* Alias */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react-router-dom": ["./src/lib/router.tsx"]
     }
   },
   "include": ["src"]

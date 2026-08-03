@@ -25,6 +25,8 @@
     "producers": [
       { "binding": "SYNC_TRACKED_IOS", "queue": "openapps-sync-tracked-ios" },
       { "binding": "SYNC_TRACKED_ANDROID", "queue": "openapps-sync-tracked-android" },
+      { "binding": "SYNC_ON_DEMAND_IOS", "queue": "openapps-sync-on-demand-ios" },
+      { "binding": "SYNC_ON_DEMAND_ANDROID", "queue": "openapps-sync-on-demand-android" },
       { "binding": "CHARTS_IOS", "queue": "openapps-charts-ios" },
       { "binding": "CHARTS_ANDROID", "queue": "openapps-charts-android" },
       { "binding": "RECONCILE", "queue": "openapps-reconcile" }
@@ -64,6 +66,8 @@
         "producers": [
           { "binding": "SYNC_TRACKED_IOS", "queue": "openapps-sync-tracked-ios-preview" },
           { "binding": "SYNC_TRACKED_ANDROID", "queue": "openapps-sync-tracked-android-preview" },
+          { "binding": "SYNC_ON_DEMAND_IOS", "queue": "openapps-sync-on-demand-ios-preview" },
+          { "binding": "SYNC_ON_DEMAND_ANDROID", "queue": "openapps-sync-on-demand-android-preview" },
           { "binding": "CHARTS_IOS", "queue": "openapps-charts-ios-preview" },
           { "binding": "CHARTS_ANDROID", "queue": "openapps-charts-android-preview" },
           { "binding": "RECONCILE", "queue": "openapps-reconcile-preview" }

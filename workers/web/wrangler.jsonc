@@ -46,7 +46,8 @@
   "vars": {
     "APP_NAME": "OpenApps by MBZA",
     "APP_URL": "https://apps.mbza.dev",
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "TRACKED_APP_REFRESH_HOURS": "24"
   },
   "observability": {
     "enabled": true,
@@ -80,7 +81,7 @@
           { "binding": "RECONCILE", "queue": "openapps-reconcile-preview" }
         ]
       },
-      "vars": { "APP_NAME": "OpenApps by MBZA Preview", "APP_URL": "https://openapps-web-preview.mbza.workers.dev", "ENVIRONMENT": "preview" }
+      "vars": { "APP_NAME": "OpenApps by MBZA Preview", "APP_URL": "https://openapps-web-preview.mbza.workers.dev", "ENVIRONMENT": "preview", "TRACKED_APP_REFRESH_HOURS": "24" }
     }
   }
 }

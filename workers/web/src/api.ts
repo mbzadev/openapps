@@ -26,7 +26,7 @@ function validation(errors: Record<string, string[]>) {
 }
 
 function userResource(user: AuthContext['user']) {
-  return { id: user.id, name: user.name, email: user.email, created_at: user.created_at, updated_at: user.updated_at }
+  return { id: user.id, name: user.name, email: user.email, email_verified_at: user.email_verified_at, created_at: user.created_at, updated_at: user.updated_at }
 }
 
 function int(value: string | undefined, fallback: number, max = 100) {
@@ -90,9 +90,9 @@ app.post('/auth/register', async (c) => {
   const created = await c.var.db.prepare('INSERT INTO users (name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id')
     .bind(parsed.data.name, parsed.data.email.toLowerCase(), passwordHash, now, now).first<{ id: number }>()
   if (!created) return c.json({ message: 'Account creation failed.' }, 500)
-  const token = await issueToken(c.var.db, created.id, 'browser-session', ['*'], null)
+  const token = await issueToken(c.var.db, created.id, 'auth-token', ['*'], null)
   c.header('Set-Cookie', sessionCookie(token.plainTextToken))
-  return c.json({ user: { id: created.id, name: parsed.data.name, email: parsed.data.email.toLowerCase(), created_at: now, updated_at: now }, token: token.plainTextToken }, 201)
+  return c.json({ user: { id: created.id, name: parsed.data.name, email: parsed.data.email.toLowerCase(), email_verified_at: null, created_at: now, updated_at: now }, token: token.plainTextToken }, 201)
 })
 
 app.post('/auth/login', async (c) => {
@@ -102,8 +102,8 @@ app.post('/auth/login', async (c) => {
   if (!parsed.success) return c.json(validation(z.flattenError(parsed.error).fieldErrors as Record<string, string[]>), 422)
   const user = await first<AuthContext['user'] & { password_hash: string }>(c.var.db, 'SELECT * FROM users WHERE email = ? COLLATE NOCASE', parsed.data.email)
   if (!user || !(await verifyPassword(parsed.data.password, user.password_hash))) return c.json({ message: 'Invalid credentials' }, 401)
-  await c.var.db.prepare("DELETE FROM personal_access_tokens WHERE user_id = ? AND name = 'browser-session'").bind(user.id).run()
-  const token = await issueToken(c.var.db, user.id, 'browser-session', ['*'], null)
+  await c.var.db.prepare("DELETE FROM personal_access_tokens WHERE user_id = ? AND name IN ('auth-token','browser-session')").bind(user.id).run()
+  const token = await issueToken(c.var.db, user.id, 'auth-token', ['*'], null)
   c.header('Set-Cookie', sessionCookie(token.plainTextToken))
   return c.json({ user: userResource(user), token: token.plainTextToken })
 })
@@ -128,17 +128,18 @@ app.post('/auth/logout', async (c) => {
 
 app.get('/account/profile', (c) => c.json(userResource(c.var.auth.user)))
 app.patch('/account/profile', async (c) => {
-  const parsed = z.object({ name: z.string().trim().min(1).max(255).optional(), email: z.email().max(255).optional() })
-    .refine((value) => value.name !== undefined || value.email !== undefined, { message: 'At least one field is required.' })
+  const parsed = z.object({ name: z.string().trim().min(1).max(255), email: z.email().max(255) })
     .safeParse(await c.req.json().catch(() => ({})))
   if (!parsed.success) return c.json(validation(z.flattenError(parsed.error).fieldErrors as Record<string, string[]>), 422)
-  const name = parsed.data.name ?? c.var.auth.user.name
-  const email = (parsed.data.email ?? c.var.auth.user.email).toLowerCase()
+  const name = parsed.data.name
+  const email = parsed.data.email.toLowerCase()
   const duplicate = await first<{ id: number }>(c.var.db, 'SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id != ?', email, c.var.auth.user.id)
   if (duplicate) return c.json(validation({ email: ['The email has already been taken.'] }), 422)
   const now = nowIso()
-  await c.var.db.prepare('UPDATE users SET name = ?, email = ?, updated_at = ? WHERE id = ?').bind(name, email, now, c.var.auth.user.id).run()
-  return c.json({ ...userResource(c.var.auth.user), name, email, updated_at: now })
+  const emailChanged = email !== c.var.auth.user.email.toLowerCase()
+  await c.var.db.prepare('UPDATE users SET name = ?, email = ?, email_verified_at = CASE WHEN ? THEN NULL ELSE email_verified_at END, updated_at = ? WHERE id = ?')
+    .bind(name, email, emailChanged ? 1 : 0, now, c.var.auth.user.id).run()
+  return c.json({ ...userResource(c.var.auth.user), name, email, email_verified_at: emailChanged ? null : c.var.auth.user.email_verified_at, updated_at: now })
 })
 app.delete('/account/profile', async (c) => {
   const body = await c.req.json<{ password?: string }>().catch(() => ({})) as { password?: string }
@@ -159,7 +160,7 @@ app.put('/account/password', async (c) => {
 })
 
 app.get('/account/api-tokens', async (c) => c.json((await all<{ id: number; name: string; abilities: string; last_used_at: string | null; created_at: string }>(c.var.db,
-  "SELECT id, name, abilities, last_used_at, created_at FROM personal_access_tokens WHERE user_id = ? AND name != 'browser-session' ORDER BY created_at DESC", c.var.auth.user.id))
+  "SELECT id, name, abilities, last_used_at, created_at FROM personal_access_tokens WHERE user_id = ? AND name NOT IN ('auth-token','browser-session') ORDER BY created_at DESC", c.var.auth.user.id))
   .map((t) => ({ ...t, abilities: jsonValue(t.abilities, []) }))))
 app.post('/account/api-tokens', async (c) => {
   const parsed = z.object({ name: z.string().trim().min(1).max(255), abilities: z.array(z.string()).optional() }).safeParse(await c.req.json().catch(() => ({})))
@@ -173,7 +174,7 @@ app.post('/account/api-tokens', async (c) => {
 })
 app.delete('/account/api-tokens/:tokenId', async (c) => {
   const tokenId = Number(c.req.param('tokenId'))
-  const token = await first<{ id: number }>(c.var.db, "SELECT id FROM personal_access_tokens WHERE id = ? AND user_id = ? AND name != 'browser-session'", tokenId, c.var.auth.user.id)
+  const token = await first<{ id: number }>(c.var.db, "SELECT id FROM personal_access_tokens WHERE id = ? AND user_id = ? AND name NOT IN ('auth-token','browser-session')", tokenId, c.var.auth.user.id)
   if (!token) return c.json({ message: 'Not found.' }, 404)
   await c.var.db.prepare('DELETE FROM personal_access_tokens WHERE id = ?').bind(tokenId).run()
   return c.body(null, 204)
@@ -262,7 +263,9 @@ app.get('/apps/:platform/:externalId', async (c) => {
   const target = await first<{ id: number; last_synced_at: string | null }>(c.var.db,
     'SELECT id,last_synced_at FROM apps WHERE platform=? AND external_id=?', platform, c.req.param('externalId'))
   if (!target) return c.json({ message: 'Not found.' }, 404)
-  const stale = !target.last_synced_at || Date.parse(target.last_synced_at) < Date.now() - 24 * 60 * 60 * 1000
+  const configuredRefreshHours = Number(c.env.TRACKED_APP_REFRESH_HOURS ?? 24)
+  const refreshHours = Number.isFinite(configuredRefreshHours) && configuredRefreshHours > 0 ? configuredRefreshHours : 24
+  const stale = !target.last_synced_at || Date.parse(target.last_synced_at) < Date.now() - refreshHours * 60 * 60 * 1000
   if (stale && !(await first(c.var.db, "SELECT 1 AS found FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", target.id))) {
     await enqueueSync(c.env, platform, c.req.param('externalId'), target.id, 'api', c.var.db)
   }
@@ -278,7 +281,12 @@ app.get('/apps/:platform/:externalId/listing', async (c) => {
   if (!locale || locale.length > 10) errors.locale = ['The locale field is required.']
   if (Object.keys(errors).length) return c.json(validation(errors), 422)
   const row = await first<Record<string, unknown>>(c.var.db, 'SELECT * FROM app_store_listings WHERE app_id=? AND locale=? ORDER BY id DESC LIMIT 1', target.id, locale)
-  return row ? c.json({ ...row, screenshots: jsonValue(row.screenshots as string, []) }) : c.json({ message: 'Not found.' }, 404)
+  if (row) return c.json({ ...row, screenshots: jsonValue(row.screenshots as string, []) })
+  const platform = platformSchema.parse(c.req.param('platform'))
+  if (!(await first(c.var.db, "SELECT 1 AS found FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", target.id))) {
+    await enqueueSync(c.env, platform, c.req.param('externalId'), target.id, 'api', c.var.db)
+  }
+  return c.json({ message: 'Not found.' }, 404)
 })
 app.post('/apps/:platform/:externalId/track', async (c) => {
   const platform = platformSchema.parse(c.req.param('platform'))
@@ -765,10 +773,17 @@ app.post('/publishers/:platform/:externalId/import', async (c) => {
   if (!Array.isArray(body.external_ids) || body.external_ids.length < 1 || body.external_ids.length > 50 || body.external_ids.some((id) => typeof id !== 'string' || !id)) {
     return c.json(validation({ external_ids: ['The external ids field is required.'] }), 422)
   }
+  const targets: Array<{ externalId: string; appId: number }> = []
   for (const id of body.external_ids) {
     const app = await resolveApp(c.var.db, platform, id)
     if (!app) return c.json(validation({ external_ids: [`App ${id} has not been discovered.`] }), 422)
-    await c.var.db.prepare('INSERT OR IGNORE INTO user_apps (user_id,app_id,created_at) VALUES (?,?,?)').bind(c.var.auth.user.id, app.id, nowIso()).run()
+    targets.push({ externalId: id, appId: app.id })
+  }
+  for (const target of targets) {
+    await c.var.db.prepare('INSERT OR IGNORE INTO user_apps (user_id,app_id,created_at) VALUES (?,?,?)').bind(c.var.auth.user.id, target.appId, nowIso()).run()
+    if (!(await first(c.var.db, "SELECT 1 AS found FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", target.appId))) {
+      await enqueueSync(c.env, platform, target.externalId, target.appId, 'api', c.var.db)
+    }
   }
   return c.body(null, 204)
 })

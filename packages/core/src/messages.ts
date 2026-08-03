@@ -14,6 +14,16 @@ export const jobMessageSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     v: z.literal(1),
+    kind: z.literal('app.storefront'),
+    platform: platformSchema,
+    appId: z.number().int().positive(),
+    countryCode: z.string().length(2),
+    locale: z.string().min(1).max(20),
+    source: z.enum(['scheduled', 'on-demand', 'reconcile']),
+    taskId: z.string().min(1),
+  }),
+  z.object({
+    v: z.literal(1),
     kind: z.literal('chart.sync'),
     platform: platformSchema,
     countryCode: z.string().length(2),

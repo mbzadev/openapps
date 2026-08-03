@@ -47,6 +47,7 @@ export default defineConfig(({ command }) => {
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
+        'react-router-dom': path.resolve(import.meta.dirname, './src/lib/router.tsx'),
       },
     },
     server: {

@@ -18,6 +18,8 @@ beforeEach(() => {
   db = new DatabaseSync(':memory:')
   db.exec(readFileSync(resolve(root, 'migrations/0001_initial.sql'), 'utf8'))
   db.exec(readFileSync(resolve(root, 'migrations/0002_seed.sql'), 'utf8'))
+  db.exec(readFileSync(resolve(root, 'migrations/0003_drop_redundant_chart_entry_index.sql'), 'utf8'))
+  db.exec(readFileSync(resolve(root, 'migrations/0004_dedupe_listing_changes.sql'), 'utf8'))
 })
 afterEach(() => db.close())
 
@@ -75,5 +77,9 @@ describe('D1 schema and reference data', () => {
   it('retains the retry lookup index used by reconciliation', () => {
     const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sync_tasks'").all().map((row) => row.name)
     expect(indexes).toContain('sync_tasks_retry_idx')
+  })
+  it('does not recreate the removed standalone chart-entry app index', () => {
+    const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='trending_chart_entries'").all().map((row) => row.name)
+    expect(indexes).not.toContain('trending_chart_entries_app_idx')
   })
 })

@@ -1,6 +1,22 @@
 import { first, nowIso, sha256, type Database } from '@openapps/core'
 import type { StoreApp } from './types.js'
 
+async function resolveCategoryId(db: Database, store: StoreApp): Promise<number | null> {
+  if (store.category_id) {
+    const byExternalId = await first<{ id: number }>(db,
+      'SELECT id FROM store_categories WHERE platform=? AND external_id=?', store.platform, store.category_id)
+    if (byExternalId) return byExternalId.id
+  }
+  const name = store.category?.trim()
+  if (name) {
+    const byName = await first<{ id: number }>(db,
+      'SELECT id FROM store_categories WHERE platform=? AND name=? COLLATE NOCASE ORDER BY priority DESC,id LIMIT 1', store.platform, name)
+    if (byName) return byName.id
+  }
+  if (store.category_id || name) console.warn(JSON.stringify({ level: 'warn', event: 'category.unknown', platform: store.platform, externalId: store.external_id, categoryExternalId: store.category_id, categoryName: name ?? null }))
+  return null
+}
+
 export async function persistStoreApp(
   db: Database,
   store: StoreApp,
@@ -21,11 +37,7 @@ export async function persistStoreApp(
       'SELECT id FROM publishers WHERE platform = ? AND external_id = ?', store.platform, publisherExternalId))?.id ?? null
   }
 
-  let categoryId: number | null = null
-  if (store.category_id) {
-    categoryId = (await first<{ id: number }>(db,
-      'SELECT id FROM store_categories WHERE platform = ? AND external_id = ?', store.platform, store.category_id))?.id ?? null
-  }
+  const categoryId = await resolveCategoryId(db, store)
 
   await db.prepare(`INSERT INTO apps
     (platform, external_id, publisher_id, category_id, display_name, icon_url, origin_country_code,
@@ -52,7 +64,7 @@ export async function persistStoreApp(
       (app_id, version, release_date, whats_new, file_size_bytes, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(app_id, version) DO UPDATE SET release_date=excluded.release_date,
-        whats_new=excluded.whats_new, file_size_bytes=excluded.file_size_bytes, updated_at=excluded.updated_at`)
+        whats_new=excluded.whats_new, file_size_bytes=COALESCE(excluded.file_size_bytes,app_versions.file_size_bytes), updated_at=excluded.updated_at`)
       .bind(app.id, store.version, store.current_version_release_date, store.whats_new, store.file_size_bytes, now, now).run()
     versionId = (await first<{ id: number }>(db,
       'SELECT id FROM app_versions WHERE app_id = ? AND version = ?', app.id, store.version))?.id ?? null
@@ -71,18 +83,20 @@ export async function persistStoreApp(
     currency: store.currency,
   })
   const checksum = await sha256(listingPayload)
-  const prior = await first<{ id: number; checksum: string; title: string; subtitle: string | null; description: string }>(db,
-    'SELECT id, checksum, title, subtitle, description FROM app_store_listings WHERE app_id = ? AND locale = ? ORDER BY id DESC LIMIT 1',
+  const prior = await first<{ id: number; version_id: number | null; checksum: string; title: string; subtitle: string | null; description: string; whats_new: string | null; screenshots: string }>(db,
+    'SELECT id, version_id, checksum, title, subtitle, description, whats_new, screenshots FROM app_store_listings WHERE app_id = ? AND locale = ? ORDER BY id DESC LIMIT 1',
     app.id, locale)
-  if (prior && prior.checksum !== checksum) {
+  if (prior && versionId !== null && prior.version_id !== null && prior.version_id !== versionId && prior.checksum !== checksum) {
     const changed: Array<[string, string | null, string | null]> = [
       ['title', prior.title, store.name],
       ['subtitle', prior.subtitle, store.subtitle],
       ['description', prior.description, store.description],
+      ['whats_new', prior.whats_new, store.whats_new],
+      ['screenshots', prior.screenshots, JSON.stringify(store.screenshots)],
     ]
     for (const [field, before, after] of changed) {
       if (before !== after) {
-        await db.prepare(`INSERT INTO app_store_listing_changes
+        await db.prepare(`INSERT OR IGNORE INTO app_store_listing_changes
           (app_id, version_id, locale, field_changed, old_value, new_value, detected_at, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
           .bind(app.id, versionId, locale, field, before, after, now, now, now).run()
@@ -109,4 +123,30 @@ export async function persistStoreApp(
       rating_count=excluded.rating_count, is_available=1, updated_at=excluded.updated_at`)
     .bind(app.id, versionId, country, now.slice(0, 10), store.rating ?? 0, store.rating_count ?? 0, now, now).run()
   return app.id
+}
+
+export async function detectLocaleChanges(db: Database, appId: number, currentVersionId: number | null): Promise<void> {
+  if (currentVersionId === null) return
+  const previous = await first<{ id: number }>(db,
+    'SELECT id FROM app_versions WHERE app_id=? AND id<? ORDER BY id DESC LIMIT 1', appId, currentVersionId)
+  if (!previous) return
+  const previousRows = await db.prepare('SELECT locale,title FROM app_store_listings WHERE app_id=? AND version_id=?')
+    .bind(appId, previous.id).all<{ locale: string; title: string }>()
+  const currentRows = await db.prepare('SELECT locale,title FROM app_store_listings WHERE app_id=? AND version_id=?')
+    .bind(appId, currentVersionId).all<{ locale: string; title: string }>()
+  const previousLocales = new Map((previousRows.results ?? []).map((row) => [row.locale, row.title]))
+  const currentLocales = new Map((currentRows.results ?? []).map((row) => [row.locale, row.title]))
+  const now = nowIso()
+  const statements: D1PreparedStatement[] = []
+  for (const [locale, title] of currentLocales) if (!previousLocales.has(locale)) {
+    statements.push(db.prepare(`INSERT OR IGNORE INTO app_store_listing_changes
+      (app_id,version_id,locale,field_changed,old_value,new_value,detected_at,created_at,updated_at)
+      VALUES (?,? ,?,'locale_added',NULL,?,?,?,?)`).bind(appId, currentVersionId, locale, title, now, now, now))
+  }
+  for (const [locale, title] of previousLocales) if (!currentLocales.has(locale)) {
+    statements.push(db.prepare(`INSERT OR IGNORE INTO app_store_listing_changes
+      (app_id,version_id,locale,field_changed,old_value,new_value,detected_at,created_at,updated_at)
+      VALUES (?,? ,?,'locale_removed',?,NULL,?,?,?)`).bind(appId, currentVersionId, locale, title, now, now, now))
+  }
+  if (statements.length) await db.batch(statements)
 }

@@ -8,6 +8,42 @@ type Args = Record<string, unknown>
 type AppExecutionContext = Parameters<typeof api.fetch>[2]
 type ToolSpec = { name: string; method?: 'GET' | 'POST' | 'DELETE'; path: (args: Args) => string; write?: boolean; omit?: string[] }
 const p = (args: Args, name: string) => encodeURIComponent(String(args[name] ?? ''))
+const platform = z.enum(['ios', 'android'])
+const externalId = z.string().min(1)
+const appIdentity = { platform, external_id: externalId }
+const paging = { page: z.number().int().min(1).optional(), per_page: z.number().int().min(1).max(100).optional() }
+const changeFields = z.enum(['title', 'subtitle', 'description', 'whats_new', 'screenshots', 'locale_added', 'locale_removed'])
+const inputSchemas: Record<string, z.ZodObject> = {
+  list_countries: z.object({}),
+  list_categories: z.object({ platform: platform.optional(), type: z.enum(['app', 'game', 'magazine']).optional() }),
+  search_store_apps: z.object({ term: z.string().min(2).max(100), platform, country_code: z.string().length(2).optional(), exclude_external_ids: z.array(z.string()).optional() }),
+  list_tracked_apps: z.object({ platform: platform.optional(), search: z.string().max(100).optional(), folder_id: z.union([z.string(), z.number().int().positive()]).optional() }),
+  get_app: z.object(appIdentity),
+  get_app_listing: z.object({ ...appIdentity, country_code: z.string().length(2), locale: z.string().min(1).max(10) }),
+  get_app_sync_status: z.object(appIdentity),
+  track_app: z.object(appIdentity),
+  untrack_app: z.object(appIdentity),
+  list_app_competitors: z.object(appIdentity),
+  list_all_competitors: z.object({ platform: platform.optional(), search: z.string().max(100).optional(), folder_id: z.union([z.string(), z.number().int().positive()]).optional() }),
+  add_competitor: z.object({ ...appIdentity, competitor_external_id: externalId.optional(), competitor_platform: platform.optional(), competitor_app_id: z.number().int().positive().optional(), relationship: z.enum(['direct', 'indirect', 'aspiration']).optional() }).refine((value) => value.competitor_external_id !== undefined || value.competitor_app_id !== undefined),
+  remove_competitor: z.object({ ...appIdentity, competitor_id: z.number().int().positive() }),
+  list_app_changes: z.object({ ...paging, field: changeFields.optional(), platform: platform.optional(), search: z.string().max(100).optional(), app_id: z.number().int().positive().optional(), folder_id: z.union([z.string(), z.number().int().positive()]).optional() }),
+  list_competitor_changes: z.object({ ...paging, field: changeFields.optional(), platform: platform.optional(), search: z.string().max(100).optional(), app_id: z.number().int().positive().optional(), folder_id: z.union([z.string(), z.number().int().positive()]).optional() }),
+  get_charts: z.object({ platform, collection: z.enum(['top_free', 'top_paid', 'top_grossing']), country_code: z.string().length(2).optional(), category_id: z.number().int().positive().optional() }),
+  get_app_rankings: z.object({ ...appIdentity, date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), collection: z.enum(['top_free', 'top_paid', 'top_grossing', 'all']).optional() }),
+  get_rating_summary: z.object(appIdentity),
+  get_rating_history: z.object({ ...appIdentity, days: z.number().int().min(1).max(90).optional() }),
+  get_rating_country_breakdown: z.object(appIdentity),
+  get_app_keywords: z.object({ ...appIdentity, locale: z.string().optional(), ngram: z.number().int().min(1).max(4).optional(), version_id: z.number().int().positive().optional(), search: z.string().max(100).optional(), sort: z.enum(['keyword', 'count', 'density']).optional(), order: z.enum(['asc', 'desc']).optional(), per_page: z.number().int().min(1).max(500).optional(), page: z.number().int().min(1).optional() }),
+  compare_app_keywords: z.object({ ...appIdentity, app_ids: z.array(z.number().int().positive()).min(1).max(5), version_ids: z.record(z.string(), z.number().int().positive()).optional(), locale: z.string().optional(), ngram: z.number().int().min(1).max(4).optional() }),
+  search_publishers: z.object({ term: z.string().min(2), platform, country_code: z.string().length(2).optional() }),
+  list_user_publishers: z.object({}),
+  get_publisher: z.object({ ...appIdentity, name: z.string().optional() }),
+  get_publisher_store_apps: z.object({ ...appIdentity, country_code: z.string().length(2).optional() }),
+  browse_icons: z.object({ platform: platform.optional(), category_id: z.number().int().positive().optional(), search: z.string().optional(), ...paging }),
+  browse_screenshots: z.object({ platform: platform.optional(), category_id: z.number().int().positive().optional(), search: z.string().optional(), ...paging }),
+  get_dashboard: z.object({}),
+}
 const tools: ToolSpec[] = [
   { name: 'list_countries', path: () => '/countries' },
   { name: 'list_categories', path: () => '/store-categories' },
@@ -44,7 +80,7 @@ function registerTools(server: McpServer, request: Request, auth: AuthInfo, env:
   for (const tool of tools) {
     server.registerTool(tool.name, {
       description: `${tool.write ? 'Write' : 'Read'} OpenApps data through the compatible /api/v1 contract.`,
-      inputSchema: z.object({}).catchall(z.unknown()),
+      inputSchema: inputSchemas[tool.name] ?? z.object({}),
       annotations: { readOnlyHint: !tool.write, destructiveHint: tool.method === 'DELETE' },
     }, async (args) => {
       if (tool.write && !auth.scopes.includes('openapps:write') && !auth.scopes.includes('*')) return { content: [{ type: 'text', text: 'OAuth scope openapps:write is required.' }], isError: true }
@@ -54,7 +90,7 @@ function registerTools(server: McpServer, request: Request, auth: AuthInfo, env:
       const omit = new Set(tool.omit ?? [])
       const init: RequestInit = { method, headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json' } }
       if (method === 'GET') {
-        for (const [key, value] of Object.entries(values)) if (!omit.has(key) && value !== undefined && value !== null) url.searchParams.set(key, Array.isArray(value) ? value.join(',') : String(value))
+        for (const [key, value] of Object.entries(values)) if (!omit.has(key)) appendQueryValue(url.searchParams, key, value)
       } else {
         init.headers = { ...init.headers, 'Content-Type': 'application/json' }
         init.body = JSON.stringify(Object.fromEntries(Object.entries(values).filter(([key]) => !omit.has(key))))
@@ -68,6 +104,21 @@ function registerTools(server: McpServer, request: Request, auth: AuthInfo, env:
       return { content: [{ type: 'text', text: text || JSON.stringify({ status: response.status }) }], isError: !response.ok }
     })
   }
+}
+
+export function appendQueryValue(params: URLSearchParams, key: string, value: unknown) {
+  if (value === undefined || value === null) return
+  if (Array.isArray(value)) {
+    for (const item of value) params.append(key, String(item))
+    return
+  }
+  if (typeof value === 'object') {
+    for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+      if (nestedValue !== undefined && nestedValue !== null) params.append(`${key}[${nestedKey}]`, String(nestedValue))
+    }
+    return
+  }
+  params.set(key, String(value))
 }
 
 export async function handleMcp(request: Request, env: Env, executionCtx: AppExecutionContext) {

@@ -2,7 +2,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers'
 import puppeteer from '@cloudflare/puppeteer'
 import { all, first, jobMessageSchema, log, nowIso, type JobMessage, type Platform } from '@openapps/core'
 import { createDatabase, syncTasks } from '@openapps/db'
-import { googlePlayAppUrl, parseGooglePlayHtml, persistStoreApp, scraperFor, type StoreApp } from '@openapps/scrapers'
+import { detectLocaleChanges, googlePlayAppUrl, parseGooglePlayHtml, persistStoreApp, scraperFor, type StoreApp } from '@openapps/scrapers'
 import { StoreRateLimiter } from './rate-limiter.js'
 import type { Env } from './env.js'
 
@@ -32,6 +32,14 @@ async function failSync(env: Env, appId: number, error: unknown) {
     .bind(message, nowIso(), nowIso(), appId).run()
 }
 
+async function scheduleSyncRetry(env: Env, appId: number, error: unknown, delaySeconds: number) {
+  const message = error instanceof Error ? error.message : String(error)
+  const now = nowIso()
+  await env.DB.prepare(`UPDATE sync_statuses SET status='running',error_message=?,
+    next_retry_at=datetime('now', ?),completed_at=NULL,updated_at=? WHERE app_id=?`)
+    .bind(message, `+${delaySeconds} seconds`, now, appId).run()
+}
+
 async function limit(env: Env, platform: Platform, kind: string) {
   const stub = env.STORE_RATE_LIMITER.get(env.STORE_RATE_LIMITER.idFromName(`${platform}:${kind}`))
   return stub.acquire(platform === 'ios' ? 20 : 10, 60)
@@ -54,6 +62,69 @@ async function lookupWithBrowserFallback(env: Env, platform: Platform, externalI
   }
 }
 
+function syncQueue(env: Env, platform: Platform, source: 'scheduled' | 'on-demand' | 'reconcile') {
+  if (source === 'on-demand') return platform === 'ios' ? env.SYNC_ON_DEMAND_IOS : env.SYNC_ON_DEMAND_ANDROID
+  return platform === 'ios' ? env.SYNC_TRACKED_IOS : env.SYNC_TRACKED_ANDROID
+}
+
+async function storefrontTargets(env: Env, platform: Platform) {
+  const languageColumn = platform === 'ios' ? 'ios_languages' : 'android_languages'
+  const activeColumn = platform === 'ios' ? 'is_active_ios' : 'is_active_android'
+  const rows = await all<{ code: string; languages: string }>(env.DB,
+    `SELECT code,${languageColumn} AS languages FROM countries WHERE ${activeColumn}=1 AND code!='zz' ORDER BY priority DESC,name`)
+  const targets = new Map<string, { countryCode: string; locale: string }>()
+  const parsed = rows.map((row) => ({ countryCode: row.code, locales: JSON.parse(row.languages) as string[] }))
+  // Every active country receives a metric/listing refresh using its primary
+  // locale, then every additional locale is assigned once to its highest
+  // priority compatible country.
+  for (const row of parsed) {
+    const locale = row.locales[0] ?? 'en-US'
+    targets.set(`${row.countryCode}:${locale}`, { countryCode: row.countryCode, locale })
+  }
+  const coveredLocales = new Set<string>()
+  for (const row of parsed) for (const locale of row.locales) {
+    if (coveredLocales.has(locale)) continue
+    coveredLocales.add(locale)
+    targets.set(`${row.countryCode}:${locale}`, { countryCode: row.countryCode, locale })
+  }
+  return [...targets.values()]
+}
+
+async function sendStorefronts(env: Env, messages: Array<Extract<JobMessage, { kind: 'app.storefront' }>>) {
+  if (!messages.length) return
+  const queue = syncQueue(env, messages[0]!.platform, messages[0]!.source)
+  for (let offset = 0; offset < messages.length; offset += 100) {
+    await queue.sendBatch(messages.slice(offset, offset + 100).map((body) => ({ body, contentType: 'json' as const })))
+  }
+}
+
+function storefrontTaskPrefix(taskId: string) {
+  return `${taskId}:storefront:`
+}
+
+async function recomputeStorefrontProgress(env: Env, message: Extract<JobMessage, { kind: 'app.storefront' }>) {
+  const marker = ':storefront:'
+  const markerIndex = message.taskId.lastIndexOf(marker)
+  if (markerIndex < 0) throw new Error(`Invalid storefront task id: ${message.taskId}`)
+  const prefix = message.taskId.slice(0, markerIndex + marker.length)
+  const now = nowIso()
+  await env.DB.prepare(`WITH completed(done) AS (
+      SELECT 1+COUNT(*) FROM sync_tasks
+      WHERE status='completed' AND substr(task_id,1,?)=?
+    ) UPDATE sync_statuses SET
+      progress_done=MIN(progress_total,(SELECT done FROM completed)),
+      status=CASE WHEN (SELECT done FROM completed)>=progress_total THEN 'completed' ELSE 'running' END,
+      current_step=CASE WHEN (SELECT done FROM completed)>=progress_total THEN NULL ELSE 'storefronts' END,
+      completed_at=CASE WHEN (SELECT done FROM completed)>=progress_total THEN ? ELSE NULL END,
+      error_message=NULL,updated_at=? WHERE app_id=?`)
+    .bind(prefix.length, prefix, now, now, message.appId).run()
+  const status = await first<{ status: string }>(env.DB, 'SELECT status FROM sync_statuses WHERE app_id=?', message.appId)
+  if (status?.status === 'completed') {
+    const version = await first<{ id: number }>(env.DB, 'SELECT id FROM app_versions WHERE app_id=? ORDER BY id DESC LIMIT 1', message.appId)
+    await detectLocaleChanges(env.DB, message.appId, version?.id ?? null)
+  }
+}
+
 async function syncApp(env: Env, message: Extract<JobMessage, { kind: 'app.sync' }>) {
   const app = await first<{ external_id: string }>(env.DB, 'SELECT external_id FROM apps WHERE id=?', message.appId)
   if (!app) throw new Error(`App ${message.appId} no longer exists`)
@@ -62,7 +133,44 @@ async function syncApp(env: Env, message: Extract<JobMessage, { kind: 'app.sync'
   await setSync(env, message.appId, 'running', 'store-metadata')
   const store = await lookupWithBrowserFallback(env, message.platform, app.external_id, 'us', 'en-US')
   await persistStoreApp(env.DB, store, { country: 'us', locale: 'en-US', discoveredFrom: message.source })
-  await setSync(env, message.appId, 'completed', null)
+  const targets = (await storefrontTargets(env, message.platform)).filter((target) => target.countryCode !== 'us' || target.locale !== 'en-US')
+  const children: Array<Extract<JobMessage, { kind: 'app.storefront' }>> = targets.map((target) => ({
+    v: 1,
+    kind: 'app.storefront',
+    platform: message.platform,
+    appId: message.appId,
+    countryCode: target.countryCode,
+    locale: target.locale,
+    source: message.source,
+    taskId: `${message.taskId}:storefront:${target.countryCode}:${target.locale}`,
+  }))
+  const prefix = storefrontTaskPrefix(message.taskId)
+  const completedRows = await all<{ task_id: string }>(env.DB,
+    "SELECT task_id FROM sync_tasks WHERE status='completed' AND substr(task_id,1,?)=?",
+    prefix.length, prefix)
+  const completed = new Set(completedRows.map((row) => row.task_id))
+  const pendingChildren = children.filter((child) => !completed.has(child.taskId))
+  const total = children.length + 1
+  const done = Math.min(total, completed.size + 1)
+  const now = nowIso()
+  await env.DB.prepare(`UPDATE sync_statuses SET status=?,current_step=?,progress_done=?,progress_total=?,job_id=?,
+    error_message=NULL,completed_at=?,updated_at=? WHERE app_id=?`)
+    .bind(done < total ? 'running' : 'completed', done < total ? 'storefronts' : null, done, total, message.taskId,
+      done < total ? null : now, now, message.appId).run()
+  if (done >= total) {
+    const version = await first<{ id: number }>(env.DB, 'SELECT id FROM app_versions WHERE app_id=? ORDER BY id DESC LIMIT 1', message.appId)
+    await detectLocaleChanges(env.DB, message.appId, version?.id ?? null)
+  }
+  await sendStorefronts(env, pendingChildren)
+}
+
+async function syncStorefront(env: Env, message: Extract<JobMessage, { kind: 'app.storefront' }>) {
+  const app = await first<{ external_id: string }>(env.DB, 'SELECT external_id FROM apps WHERE id=?', message.appId)
+  if (!app) throw new Error(`App ${message.appId} no longer exists`)
+  const quota = await limit(env, message.platform, 'storefront')
+  if (!quota.allowed) throw new Error(`RATE_LIMIT:${quota.retryAfterMs}`)
+  const store = await lookupWithBrowserFallback(env, message.platform, app.external_id, message.countryCode, message.locale)
+  await persistStoreApp(env.DB, store, { country: message.countryCode, locale: message.locale, discoveredFrom: message.source })
 }
 
 async function syncChart(env: Env, message: Extract<JobMessage, { kind: 'chart.sync' }>) {
@@ -72,20 +180,30 @@ async function syncChart(env: Env, message: Extract<JobMessage, { kind: 'chart.s
     ? await first<{ id: number }>(env.DB, 'SELECT id FROM store_categories WHERE platform=? AND external_id=?', message.platform, message.categoryExternalId)
     : await first<{ id: number }>(env.DB, 'SELECT id FROM store_categories WHERE platform=? AND external_id IS NULL', message.platform)
   if (!category) throw new Error(`Missing ${message.platform} root category`)
+  const existing = await first<{ id: number }>(env.DB, `SELECT id FROM trending_charts
+    WHERE platform=? AND collection=? AND country_code=? AND category_id=? AND snapshot_date=?`,
+  message.platform, message.collection, message.countryCode, category.id, message.snapshotDate)
+  if (existing) return
   const entries = await scraperFor(message.platform).chart(message.collection, message.countryCode, 100, message.categoryExternalId)
+  if (!entries.length) {
+    log('warn', 'chart.empty', { platform: message.platform, collection: message.collection, countryCode: message.countryCode, snapshotDate: message.snapshotDate })
+    return
+  }
   const now = nowIso()
-  await env.DB.prepare(`INSERT INTO trending_charts (platform,collection,category_id,country_code,snapshot_date,created_at,updated_at)
-    VALUES (?,?,?,?,?,?,?) ON CONFLICT(platform,collection,country_code,category_id,snapshot_date) DO UPDATE SET updated_at=excluded.updated_at`)
-    .bind(message.platform, message.collection, category.id, message.countryCode, message.snapshotDate, now, now).run()
-  const chart = await first<{ id: number }>(env.DB, `SELECT id FROM trending_charts WHERE platform=? AND collection=? AND country_code=? AND category_id=? AND snapshot_date=?`, message.platform, message.collection, message.countryCode, category.id, message.snapshotDate)
-  if (!chart) throw new Error('Chart persistence failed')
-  await env.DB.prepare('DELETE FROM trending_chart_entries WHERE trending_chart_id=?').bind(chart.id).run()
+  const persistedEntries: Array<{ rank: number; appId: number; price: number; currency: string | null }> = []
   for (const entry of entries) {
     const store = await lookupWithBrowserFallback(env, message.platform, entry.external_id, message.countryCode)
     const appId = await persistStoreApp(env.DB, store, { country: message.countryCode, discoveredFrom: 'chart' })
-    await env.DB.prepare(`INSERT INTO trending_chart_entries (trending_chart_id,rank,app_id,price,currency) VALUES (?,?,?,?,?)`)
-      .bind(chart.id, entry.rank, appId, entry.price, entry.currency).run()
+    persistedEntries.push({ rank: entry.rank, appId, price: entry.price, currency: entry.currency })
   }
+  const chartId = `(SELECT id FROM trending_charts WHERE platform=? AND collection=? AND country_code=? AND category_id=? AND snapshot_date=?)`
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO trending_charts (platform,collection,category_id,country_code,snapshot_date,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?)`).bind(message.platform, message.collection, category.id, message.countryCode, message.snapshotDate, now, now),
+    ...persistedEntries.map((entry) => env.DB.prepare(`INSERT INTO trending_chart_entries
+      (trending_chart_id,rank,app_id,price,currency) VALUES (${chartId},?,?,?,?)`)
+      .bind(message.platform, message.collection, message.countryCode, category.id, message.snapshotDate, entry.rank, entry.appId, entry.price, entry.currency)),
+  ])
 }
 
 async function reconcile(env: Env, message: Extract<JobMessage, { kind: 'sync.reconcile' }>) {
@@ -141,6 +259,9 @@ export async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
       if (parsed.success) {
         await env.DB.prepare("UPDATE sync_tasks SET status='failed',failure_reason='dead_letter',error_message=?,updated_at=? WHERE task_id=?")
           .bind(`Dead-lettered after ${item.attempts} attempts`, nowIso(), parsed.data.taskId).run()
+        if (parsed.data.kind === 'app.sync' || parsed.data.kind === 'app.storefront') {
+          await failSync(env, parsed.data.appId, `Dead-lettered after ${item.attempts} attempts`)
+        }
       }
       item.ack()
     }
@@ -152,22 +273,25 @@ export async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
     if (!parsed.success) { await archiveFailure(env, item.body, parsed.error); item.ack(); continue }
     try {
       if (!(await claimTask(env, parsed.data))) {
+        if (parsed.data.kind === 'app.storefront') await recomputeStorefrontProgress(env, parsed.data)
         log('info', 'queue.duplicate', task(parsed.data, 'acknowledged'))
         item.ack()
         continue
       }
       if (parsed.data.kind === 'app.sync') await syncApp(env, parsed.data)
+      else if (parsed.data.kind === 'app.storefront') await syncStorefront(env, parsed.data)
       else if (parsed.data.kind === 'chart.sync') await syncChart(env, parsed.data)
       else if (parsed.data.kind === 'sync.reconcile') await reconcile(env, parsed.data)
       else await archiveFailure(env, parsed.data.original, parsed.data.error)
       await completeTask(env, parsed.data.taskId)
+      if (parsed.data.kind === 'app.storefront') await recomputeStorefrontProgress(env, parsed.data)
       log('info', 'queue.completed', task(parsed.data, 'completed'))
       item.ack()
     } catch (error) {
       log('error', 'queue.failed', task(parsed.data, 'failed', error instanceof Error ? error.message : String(error)))
-      if (parsed.data.kind === 'app.sync') await failSync(env, parsed.data.appId, error)
       const retryMs = error instanceof Error && error.message.startsWith('RATE_LIMIT:') ? Number(error.message.slice(11)) : 2 ** Math.min(item.attempts, 8) * 1000
       const delaySeconds = Math.max(1, Math.ceil(retryMs / 1000))
+      if (parsed.data.kind === 'app.sync' || parsed.data.kind === 'app.storefront') await scheduleSyncRetry(env, parsed.data.appId, error, delaySeconds)
       await retryTask(env, parsed.data.taskId, error, delaySeconds)
       item.retry({ delaySeconds })
     }

@@ -19,7 +19,7 @@ describe('legacy /api/v1 behavior in workerd', () => {
       SYNC_TRACKED_IOS: queue, SYNC_TRACKED_ANDROID: queue,
       SYNC_ON_DEMAND_IOS: queue, SYNC_ON_DEMAND_ANDROID: queue,
       CHARTS_IOS: queue, CHARTS_ANDROID: queue, RECONCILE: queue,
-      APP_NAME: 'OpenApps by MBZA', APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'test',
+      APP_NAME: 'OpenApps by MBZA', APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'test', TRACKED_APP_REFRESH_HOURS: '24',
     }
     let token = ''
     const call = async (path: string, init: RequestInit = {}) => {
@@ -33,7 +33,7 @@ describe('legacy /api/v1 behavior in workerd', () => {
     expect(registration.status).toBe(201)
     token = ((await registration.json()) as { token: string }).token
 
-    const profile = await call('/account/profile', { method: 'PATCH', body: JSON.stringify({ name: 'Updated only' }) })
+    const profile = await call('/account/profile', { method: 'PATCH', body: JSON.stringify({ name: 'Updated only', email: 'legacy@example.test' }) })
     expect(profile.status).toBe(200)
     expect((await profile.json() as { name: string }).name).toBe('Updated only')
 
@@ -44,6 +44,7 @@ describe('legacy /api/v1 behavior in workerd', () => {
     const parentId = await insertApp('com.example.parent')
     const rivalId = await insertApp('com.example.rival')
     await insertApp('com.example.untracked')
+    const refreshId = await insertApp('com.example.refresh-window')
 
     expect((await call('/apps', { method: 'POST', body: JSON.stringify({ platform: 'ios', external_id: 'com.example.parent' }) })).status).toBe(201)
     expect((await call('/apps?folder_id=unassigned')).status).toBe(200)
@@ -52,6 +53,22 @@ describe('legacy /api/v1 behavior in workerd', () => {
     expect((await call('/apps/ios/missing/ratings/history')).status).toBe(404)
     expect((await call('/apps/ios/missing/rankings')).status).toBe(404)
     expect((await call('/apps/ios/missing/keywords')).status).toBe(404)
+
+    const missingListing = await call('/apps/ios/com.example.untracked/listing?country_code=us&locale=en-US')
+    expect(missingListing.status).toBe(404)
+    expect(queued).toHaveLength(1)
+    expect(queued[0]).toMatchObject({ kind: 'app.sync', platform: 'ios', appId: expect.any(Number), source: 'on-demand' })
+    queued.length = 0
+
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+    await testEnv.DB.prepare('UPDATE apps SET last_synced_at=? WHERE id=?').bind(twoHoursAgo, refreshId).run()
+    expect((await call('/apps/ios/com.example.refresh-window')).status).toBe(200)
+    expect(queued).toHaveLength(0)
+    bindings.TRACKED_APP_REFRESH_HOURS = '1'
+    expect((await call('/apps/ios/com.example.refresh-window')).status).toBe(200)
+    expect(queued).toHaveLength(1)
+    queued.length = 0
+    bindings.TRACKED_APP_REFRESH_HOURS = '24'
 
     const firstSync = await call('/apps/ios/com.example.parent/sync', { method: 'POST' })
     expect(firstSync.status).toBe(200)

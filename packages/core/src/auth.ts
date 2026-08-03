@@ -1,7 +1,7 @@
 import { first, nowIso, type Database } from './db.js'
 import { randomToken, sha256 } from './crypto.js'
 
-export type AuthUser = { id: number; name: string; email: string; created_at: string; updated_at: string }
+export type AuthUser = { id: number; name: string; email: string; email_verified_at: string | null; created_at: string; updated_at: string }
 
 export type AuthContext = { user: AuthUser; tokenId: number; abilities: string[]; viaCookie: boolean }
 
@@ -38,17 +38,18 @@ export async function authenticateRequest(db: Database, request: Request): Promi
     id: number
     name: string
     email: string
+    email_verified_at: string | null
     created_at: string
     updated_at: string
   }>(db, `SELECT t.id AS token_id, t.abilities, t.expires_at,
-      u.id, u.name, u.email, u.created_at, u.updated_at
+      u.id, u.name, u.email, u.email_verified_at, u.created_at, u.updated_at
     FROM personal_access_tokens t JOIN users u ON u.id = t.user_id
     WHERE t.token_hash = ? LIMIT 1`, tokenHash)
   if (!row || (row.expires_at && row.expires_at <= nowIso())) return null
   await db.prepare('UPDATE personal_access_tokens SET last_used_at=?,updated_at=? WHERE id=?')
     .bind(nowIso(), nowIso(), row.token_id).run()
   return {
-    user: { id: row.id, name: row.name, email: row.email, created_at: row.created_at, updated_at: row.updated_at },
+    user: { id: row.id, name: row.name, email: row.email, email_verified_at: row.email_verified_at, created_at: row.created_at, updated_at: row.updated_at },
     tokenId: row.token_id,
     abilities: JSON.parse(row.abilities) as string[],
     viaCookie: Boolean(cookieToken && !authorization),

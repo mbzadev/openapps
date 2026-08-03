@@ -14,12 +14,12 @@
     "build": "npm run openapi && npm run build -w @openapps/mcp && npm run build:web-assets && npm run build -w @openapps/web-worker && npm run build -w @openapps/jobs-worker",
     "build:web-assets": "npm run build -w frontend && npm run sync-docs -w @openapps/docs-site && npm run build -w @openapps/docs-site && node scripts/merge-docs.mjs",
     "check": "npm run cf:types:check && npm run lint && npm run typecheck && npm run test",
-    "openapi": "node --experimental-strip-types scripts/generate-openapi.mjs",
+    "openapi": "node --experimental-strip-types scripts/generate-openapi.mjs && npm run api:contract -w frontend",
     "legacy:catalog": "node scripts/catalog-legacy-tests.mjs",
     "typecheck": "npm run typecheck -w @openapps/core && npm run typecheck -w @openapps/db && npm run typecheck -w @openapps/contracts && npm run typecheck -w @openapps/scrapers && npm run build -w @openapps/mcp && npm run typecheck -w @openapps/web-worker && npm run typecheck -w @openapps/jobs-worker && npm run typecheck -w frontend",
     "lint": "npm run lint -w frontend",
     "test": "vitest run && npm run test:workers",
-    "test:workers": "vitest run --config vitest.workers.config.ts",
+    "test:workers": "vitest run --config vitest.workers.config.ts && vitest run --config vitest.web.config.ts",
     "test:e2e": "playwright test",
     "cf:types": "npm run cf:types -w @openapps/web-worker && npm run cf:types -w @openapps/jobs-worker",
     "cf:types:check": "npm run cf:types:check -w @openapps/web-worker && npm run cf:types:check -w @openapps/jobs-worker",
@@ -31,6 +31,7 @@
     "deploy:jobs": "npm run deploy -w @openapps/jobs-worker"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20260801.1",
     "@cloudflare/vitest-pool-workers": "0.20.1",
     "@playwright/test": "^1.62.1",
     "typescript": "^6.0.2",

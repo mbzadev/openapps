@@ -85,7 +85,10 @@ export const appStoreListingChanges = sqliteTable('app_store_listing_changes', {
   id: integer().primaryKey({ autoIncrement: true }), appId: integer('app_id').notNull().references(() => apps.id, { onDelete: 'cascade' }),
   versionId: integer('version_id').references(() => appVersions.id, { onDelete: 'set null' }), locale: text().notNull(), fieldChanged: text('field_changed').notNull(),
   oldValue: text('old_value'), newValue: text('new_value'), detectedAt: text('detected_at').notNull(), ...timestamps,
-}, (table) => [index('listing_changes_app_detected_idx').on(table.appId, table.detectedAt)])
+}, (table) => [
+  index('listing_changes_app_detected_idx').on(table.appId, table.detectedAt),
+  uniqueIndex('listing_changes_transition_unique').on(table.appId, table.versionId, table.locale, table.fieldChanged),
+])
 
 export const appMetrics = sqliteTable('app_metrics', {
   id: integer().primaryKey({ autoIncrement: true }), appId: integer('app_id').notNull().references(() => apps.id, { onDelete: 'cascade' }),
@@ -109,7 +112,7 @@ export const trendingCharts = sqliteTable('trending_charts', {
 export const trendingChartEntries = sqliteTable('trending_chart_entries', {
   id: integer().primaryKey({ autoIncrement: true }), trendingChartId: integer('trending_chart_id').notNull().references(() => trendingCharts.id, { onDelete: 'cascade' }),
   rank: integer().notNull(), appId: integer('app_id').notNull().references(() => apps.id, { onDelete: 'cascade' }), price: real().notNull().default(0), currency: text(),
-}, (table) => [unique().on(table.trendingChartId, table.rank), unique().on(table.trendingChartId, table.appId), index('trending_chart_entries_app_idx').on(table.appId, table.trendingChartId)])
+}, (table) => [unique().on(table.trendingChartId, table.rank), unique().on(table.trendingChartId, table.appId)])
 
 export const syncStatuses = sqliteTable('sync_statuses', {
   id: integer().primaryKey({ autoIncrement: true }), appId: integer('app_id').notNull().unique().references(() => apps.id, { onDelete: 'cascade' }),

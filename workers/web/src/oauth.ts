@@ -4,6 +4,8 @@ import type { Env, Variables } from './env.js'
 
 type OAuthClient = { client_id: string; client_name: string; redirect_uris: string[]; token_endpoint_auth_method: 'none'; grant_types: string[]; response_types: string[] }
 type AuthorizationCode = { userId: number; clientId: string; redirectUri: string; challenge: string; scope: string[] }
+type AuthorizationTransaction = AuthorizationCode & { state: string | null; createdAt: string }
+type OAuthConsent = { userId: number; clientId: string; scope: string[]; grantedAt: string }
 
 const oauth = new Hono<{ Bindings: Env; Variables: Variables }>()
 const scopes = ['openapps:read', 'openapps:write']
@@ -62,8 +64,21 @@ oauth.get('/oauth/authorize', async (c) => {
   const clientRaw = query.client_id ? await c.env.OAUTH_KV.get(`client:${query.client_id}`) : null
   const client = clientRaw ? JSON.parse(clientRaw) as OAuthClient : null
   if (!client || query.response_type !== 'code' || !query.redirect_uri || !client.redirect_uris.includes(query.redirect_uri) || !query.code_challenge || query.code_challenge_method !== 'S256') return c.json({ error: 'invalid_request' }, 400)
-  const requested = (query.scope ?? 'openapps:read').split(' ').filter((scope) => scopes.includes(scope))
-  const hidden = Object.entries(query).map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}">`).join('')
+  const requested = (query.scope ?? 'openapps:read').split(' ').filter(Boolean)
+  if (!requested.length || requested.some((scope) => !scopes.includes(scope))) return c.json({ error: 'invalid_scope' }, 400)
+  if (query.code_challenge.length < 43 || query.code_challenge.length > 128) return c.json({ error: 'invalid_request' }, 400)
+  const transactionId = crypto.randomUUID()
+  const transaction: AuthorizationTransaction = {
+    userId: auth.user.id,
+    clientId: client.client_id,
+    redirectUri: query.redirect_uri,
+    challenge: query.code_challenge,
+    scope: requested,
+    state: query.state ?? null,
+    createdAt: new Date().toISOString(),
+  }
+  await c.env.OAUTH_KV.put(`transaction:${transactionId}`, JSON.stringify(transaction), { expirationTtl: 600 })
+  const hidden = `<input type="hidden" name="transaction_id" value="${escapeHtml(transactionId)}">`
   const clientName = escapeHtml(client.client_name)
   return c.html(`<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Autoriser ${clientName}</title><style>body{font:16px system-ui;max-width:560px;margin:10vh auto;padding:24px;background:#0b1220;color:#fff}main{background:#111c30;padding:32px;border-radius:16px}button{padding:12px 18px;border:0;border-radius:9px;background:#10b981;color:#052e24;font-weight:700}</style><main><h1>OpenApps by MBZA</h1><p><strong>${clientName}</strong> demande l’accès à votre compte.</p><ul>${requested.map((scope) => `<li>${escapeHtml(scope)}</li>`).join('')}</ul><form method="post">${hidden}<button name="decision" value="allow">Autoriser</button> <button name="decision" value="deny" style="background:#94a3b8">Refuser</button></form></main></html>`)
 })
@@ -72,21 +87,23 @@ oauth.post('/oauth/authorize', async (c) => {
   const auth = await authenticateRequest(c.env.DB, c.req.raw)
   if (!auth) return c.json({ error: 'access_denied' }, 401)
   const form = await c.req.parseBody()
-  const clientId = String(form.client_id ?? ''), redirectUri = String(form.redirect_uri ?? '')
-  const raw = await c.env.OAUTH_KV.get(`client:${clientId}`)
-  const client = raw ? JSON.parse(raw) as OAuthClient : null
-  const responseType = String(form.response_type ?? '')
-  const codeChallenge = String(form.code_challenge ?? '')
-  if (!client || !client.redirect_uris.includes(redirectUri) || responseType !== 'code' || form.code_challenge_method !== 'S256' || codeChallenge.length < 43 || codeChallenge.length > 128) return c.json({ error: 'invalid_request' }, 400)
-  const redirect = new URL(redirectUri)
-  if (form.state) redirect.searchParams.set('state', String(form.state))
+  const transactionId = String(form.transaction_id ?? '')
+  const transactionKey = `transaction:${transactionId}`
+  const rawTransaction = transactionId ? await c.env.OAUTH_KV.get(transactionKey) : null
+  const transaction = rawTransaction ? JSON.parse(rawTransaction) as AuthorizationTransaction : null
+  if (!transaction || transaction.userId !== auth.user.id) return c.json({ error: 'invalid_request' }, 400)
+  const rawClient = await c.env.OAUTH_KV.get(`client:${transaction.clientId}`)
+  const client = rawClient ? JSON.parse(rawClient) as OAuthClient : null
+  if (!client || !client.redirect_uris.includes(transaction.redirectUri)) return c.json({ error: 'invalid_request' }, 400)
+  await c.env.OAUTH_KV.delete(transactionKey)
+  const redirect = new URL(transaction.redirectUri)
+  if (transaction.state) redirect.searchParams.set('state', transaction.state)
   if (form.decision !== 'allow') { redirect.searchParams.set('error', 'access_denied'); return c.redirect(redirect.toString()) }
-  const rawScopes = String(form.scope ?? 'openapps:read').split(' ').filter(Boolean)
-  if (rawScopes.some((scope) => !scopes.includes(scope))) return c.json({ error: 'invalid_scope' }, 400)
-  const requested = rawScopes.filter((scope) => scopes.includes(scope))
   const code = crypto.randomUUID()
-  const data: AuthorizationCode = { userId: auth.user.id, clientId, redirectUri, challenge: codeChallenge, scope: requested.length ? requested : ['openapps:read'] }
+  const data: AuthorizationCode = { userId: auth.user.id, clientId: transaction.clientId, redirectUri: transaction.redirectUri, challenge: transaction.challenge, scope: transaction.scope }
   await c.env.OAUTH_KV.put(`code:${code}`, JSON.stringify(data), { expirationTtl: 600 })
+  const consent: OAuthConsent = { userId: auth.user.id, clientId: transaction.clientId, scope: transaction.scope, grantedAt: new Date().toISOString() }
+  await c.env.OAUTH_KV.put(`consent:${auth.user.id}:${transaction.clientId}`, JSON.stringify(consent))
   redirect.searchParams.set('code', code)
   return c.redirect(redirect.toString())
 })
