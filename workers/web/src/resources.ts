@@ -6,8 +6,13 @@ type AppRow = {
   platform: 'ios' | 'android'
   external_id: string
   icon_url: string | null
+  origin_country_code: string
+  supported_locales: string
+  original_release_date: string | null
+  is_free: number
   is_available: number
   created_at: string
+  updated_at: string
   publisher_id: number | null
   publisher_name: string | null
   publisher_external_id: string | null
@@ -21,7 +26,8 @@ type AppRow = {
 }
 
 export const appSelect = `SELECT a.id, a.display_name, a.platform, a.external_id, a.icon_url,
-  a.is_available, a.created_at,
+  a.origin_country_code, a.supported_locales, a.original_release_date, a.is_free,
+  a.is_available, a.created_at, a.updated_at,
   p.id AS publisher_id, p.name AS publisher_name, p.external_id AS publisher_external_id,
   c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
   (SELECT rating FROM app_metrics WHERE app_id = a.id ORDER BY date DESC LIMIT 1) AS rating,
@@ -36,6 +42,7 @@ export function appResource(row: AppRow) {
   return {
     id: row.id,
     name: row.display_name,
+    display_name: row.display_name,
     platform: row.platform,
     external_id: row.external_id,
     publisher: row.publisher_id ? {
@@ -46,10 +53,15 @@ export function appResource(row: AppRow) {
     } : null,
     category: row.category_id ? { id: row.category_id, name: row.category_name, slug: row.category_slug } : null,
     icon_url: row.icon_url,
+    origin_country_code: row.origin_country_code,
+    supported_locales: jsonValue<string[]>(row.supported_locales, []),
+    original_release_date: row.original_release_date,
+    is_free: Boolean(row.is_free),
     rating: row.rating,
     rating_count: row.rating_count,
     version: row.version,
     created_at: row.created_at,
+    updated_at: row.updated_at,
     is_available: Boolean(row.is_available),
     is_tracked: Boolean(row.is_tracked),
   }
