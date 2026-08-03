@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const hostIp = process.env.OPENAPPS_E2E_HOST_IP
+const baseURL = process.env.OPENAPPS_E2E_URL ?? 'https://apps.mbza.dev'
+const hostname = new URL(baseURL).hostname
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 90_000,
@@ -7,9 +11,15 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: process.env.OPENAPPS_E2E_URL ?? 'https://apps.mbza.dev',
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [{
+    name: 'chromium',
+    use: {
+      ...devices['Desktop Chrome'],
+      launchOptions: hostIp ? { args: ['--disable-quic', `--host-resolver-rules=MAP ${hostname} ${hostIp},EXCLUDE localhost`] } : undefined,
+    },
+  }],
 })

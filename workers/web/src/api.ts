@@ -196,11 +196,12 @@ app.delete('/folders/:folder', async (c) => {
 })
 
 app.get('/apps/search', async (c) => {
-  const term = (c.req.query('q') ?? '').trim()
+  const term = (c.req.query('term') ?? c.req.query('q') ?? '').trim()
   const parsed = platformSchema.safeParse(c.req.query('platform') ?? 'ios')
-  if (!term || !parsed.success) return c.json(validation({ q: ['The q field is required.'] }), 422)
-  const results = await scraperFor(parsed.data).search(term, c.req.query('country') ?? 'us', int(c.req.query('limit'), 20, 50))
-  const searchCountry = c.req.query('country')
+  if (term.length < 2 || !parsed.success) return c.json(validation({ term: ['The term field must contain at least 2 characters.'] }), 422)
+  const country = c.req.query('country_code') ?? c.req.query('country') ?? 'us'
+  const results = await scraperFor(parsed.data).search(term, country, int(c.req.query('limit'), 20, 50))
+  const searchCountry = c.req.query('country_code') ?? c.req.query('country')
   await Promise.all(results.map((result) => persistStoreApp(c.var.db, result, { ...(searchCountry ? { country: searchCountry } : {}), discoveredFrom: 'search' })))
   const tracked = new Set((await all<{ external_id: string }>(c.var.db, `SELECT a.external_id FROM apps a JOIN user_apps ua ON ua.app_id=a.id
     WHERE ua.user_id=? AND a.platform=?`, c.var.auth.user.id, parsed.data)).map((r) => r.external_id))
@@ -372,7 +373,7 @@ app.get('/store-categories', async (c) => {
   return c.json(await all(c.var.db, `SELECT * FROM store_categories ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY priority DESC,name`, ...bind))
 })
 app.get('/charts', async (c) => {
-  const platform = c.req.query('platform') ?? 'ios', collection = c.req.query('collection') ?? 'top_free', country = c.req.query('country') ?? 'us'
+  const platform = c.req.query('platform') ?? 'ios', collection = c.req.query('collection') ?? 'top_free', country = c.req.query('country_code') ?? c.req.query('country') ?? 'us'
   const rows = await all(c.var.db, `SELECT tce.rank,a.display_name AS name,a.external_id,a.icon_url,a.platform,tce.price,tce.currency,
     p.name AS publisher,tc.snapshot_date FROM trending_chart_entries tce JOIN trending_charts tc ON tc.id=tce.trending_chart_id
     JOIN apps a ON a.id=tce.app_id LEFT JOIN publishers p ON p.id=a.publisher_id
@@ -393,11 +394,11 @@ app.get('/explorer/screenshots', async (c) => {
 })
 
 app.get('/publishers/search', async (c) => {
-  const q = (c.req.query('q') ?? '').trim(), platform = platformSchema.parse(c.req.query('platform') ?? 'ios')
+  const q = (c.req.query('term') ?? c.req.query('q') ?? '').trim(), platform = platformSchema.parse(c.req.query('platform') ?? 'ios')
   const local = await all(c.var.db, `SELECT p.*,COUNT(a.id) AS apps_count FROM publishers p LEFT JOIN apps a ON a.publisher_id=p.id
     WHERE p.platform=? AND p.name LIKE ? GROUP BY p.id ORDER BY apps_count DESC LIMIT 30`, platform, `%${q}%`)
   if (local.length) return c.json(local)
-  const discovered = await scraperFor(platform).search(q, c.req.query('country') ?? 'us', 30)
+  const discovered = await scraperFor(platform).search(q, c.req.query('country_code') ?? c.req.query('country') ?? 'us', 30)
   return c.json([...new Map(discovered.map((r) => [r.publisher_external_id ?? r.publisher_name, { platform, external_id: r.publisher_external_id ?? r.publisher_name, name: r.publisher_name, sample_apps: [r] }])).values()])
 })
 app.get('/publishers', async (c) => c.json(await all(c.var.db, `SELECT p.*,COUNT(a.id) AS apps_count FROM publishers p
@@ -409,7 +410,7 @@ app.get('/publishers/:platform/:externalId', async (c) => {
 })
 app.get('/publishers/:platform/:externalId/store-apps', async (c) => {
   const platform = platformSchema.parse(c.req.param('platform'))
-  const results = await scraperFor(platform).developerApps(decodeURIComponent(c.req.param('externalId')), c.req.query('country') ?? 'us')
+  const results = await scraperFor(platform).developerApps(decodeURIComponent(c.req.param('externalId')), c.req.query('country_code') ?? c.req.query('country') ?? 'us')
   return c.json(results)
 })
 app.post('/publishers/:platform/:externalId/import', async (c) => {
