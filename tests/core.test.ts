@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { pbkdf2Sync } from 'node:crypto'
 import { hashPassword, jobMessageSchema, randomToken, sha256, verifyPassword } from '../packages/core/src/index.ts'
 import { AppleScraper, GooglePlayScraper } from '../packages/scrapers/src/index.ts'
 import { escapeHtml } from '../workers/web/src/oauth.ts'
@@ -25,6 +26,8 @@ describe('security primitives', () => {
     expect(hash).toMatch(/^pbkdf2-sha256-v1\$600000\$/)
     expect(await verifyPassword('correct horse battery staple', hash)).toBe(true)
     expect(await verifyPassword('incorrect', hash)).toBe(false)
+    const [, iterations, salt, derived] = hash.split('$')
+    expect(Buffer.from(derived!, 'base64')).toEqual(pbkdf2Sync('correct horse battery staple', Buffer.from(salt!, 'base64'), Number(iterations), 32, 'sha256'))
   }, 20_000)
 })
 

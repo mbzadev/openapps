@@ -33,7 +33,6 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.20.1",
     "@playwright/test": "^1.62.1",
-    "@types/node": "24.12.2",
     "typescript": "^6.0.2",
     "vitest": "4.1.10",
     "wrangler": "4.118.0"

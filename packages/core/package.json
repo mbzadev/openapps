@@ -13,10 +13,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@noble/hashes": "2.0.1",
     "zod": "4.4.3"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "5.20260801.1",
-    "@types/node": "24.12.2"
   }
 }

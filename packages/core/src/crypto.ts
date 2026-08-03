@@ -1,4 +1,5 @@
-import { pbkdf2Sync } from 'node:crypto'
+import { pbkdf2 } from '@noble/hashes/pbkdf2.js'
+import { sha256 as nobleSha256 } from '@noble/hashes/sha2.js'
 
 const encoder = new TextEncoder()
 
@@ -46,8 +47,8 @@ export async function verifyPassword(password: string, encoded: string): Promise
 }
 
 async function derivePbkdf2(password: Uint8Array<ArrayBuffer>, salt: Uint8Array<ArrayBuffer>, iterations: number): Promise<Uint8Array<ArrayBuffer>> {
-  // Workers WebCrypto deliberately caps a single PBKDF2 operation at 100k.
-  // node:crypto is a native Workers API under nodejs_compat and performs the
-  // exact 600k-iteration PBKDF2 construction without weakening/composing it.
-  return new Uint8Array(pbkdf2Sync(password, salt, iterations, 32, 'sha256'))
+  // Both Workers WebCrypto and node:crypto cap PBKDF2 at 100k. Noble performs
+  // the standard PBKDF2 construction in portable audited code, preserving the
+  // requested 600k iterations instead of composing incompatible sub-hashes.
+  return new Uint8Array(pbkdf2(nobleSha256, password, salt, { c: iterations, dkLen: 32 }))
 }
