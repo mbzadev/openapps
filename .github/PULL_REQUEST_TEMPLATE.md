@@ -10,23 +10,23 @@
 
 ## Service(s) Affected
 
-- [ ] Backend (Laravel API)
+- [ ] Web Worker / API
 - [ ] Frontend (React)
 - [ ] Scraper - App Store
 - [ ] Scraper - Google Play
-- [ ] Docker / Infrastructure
+- [ ] Cloudflare infrastructure
 - [ ] Documentation
 
 ## Testing
 
 <!-- How did you test these changes? -->
 
-- [ ] Existing tests pass (`make test`)
+- [ ] Existing tests pass (`npm run check`)
 - [ ] New tests added (if applicable)
 - [ ] Manually tested
 
 ## Checklist
 
-- [ ] Code follows project conventions (see `.arc/`)
+- [ ] Code follows the TypeScript and Workers conventions
 - [ ] No breaking API changes (or documented in description)
-- [ ] `make pint` passes (for PHP changes)
+- [ ] `npm run check` passes

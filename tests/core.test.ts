@@ -22,7 +22,7 @@ describe('security primitives', () => {
 
   it('uses versioned PBKDF2 hashes and rejects a wrong password', async () => {
     const hash = await hashPassword('correct horse battery staple')
-    expect(hash).toMatch(/^pbkdf2-sha256-cf-v1\$600000\$/)
+    expect(hash).toMatch(/^pbkdf2-sha256-v1\$600000\$/)
     expect(await verifyPassword('correct horse battery staple', hash)).toBe(true)
     expect(await verifyPassword('incorrect', hash)).toBe(false)
   }, 20_000)

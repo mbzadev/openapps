@@ -1,0 +1,2187 @@
+[
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 6,
+    "scenario": "lists user API tokens excluding auth-token"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 28,
+    "scenario": "returns an empty list when the user has no API tokens"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 36,
+    "scenario": "rejects token index when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 40,
+    "scenario": "creates a new API token and returns plaintext once"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 60,
+    "scenario": "rejects token creation when name is missing"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 69,
+    "scenario": "rejects token creation when name exceeds max length"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 80,
+    "scenario": "rejects token creation when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 86,
+    "scenario": "revokes an API token by id"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 98,
+    "scenario": "returns 404 when revoking a non-existent token"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 106,
+    "scenario": "refuses to revoke the auth-token via the api-tokens endpoint"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 118,
+    "scenario": "cannot revoke another user's token"
+  },
+  {
+    "source": "Feature/Api/Account/ApiTokenTest.php",
+    "line": 130,
+    "scenario": "rejects token revoke when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 8,
+    "scenario": "returns the authenticated user profile"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 20,
+    "scenario": "rejects profile show when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 24,
+    "scenario": "updates name and email on profile"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 42,
+    "scenario": "keeps email verification when only name changes"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 58,
+    "scenario": "rejects profile update with missing fields"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 67,
+    "scenario": "rejects profile update with invalid email"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 79,
+    "scenario": "rejects profile update when email is taken by another user"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 92,
+    "scenario": "allows keeping the same email on profile update"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 104,
+    "scenario": "rejects profile update when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 111,
+    "scenario": "deletes the user account with correct password"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 126,
+    "scenario": "rejects account deletion with wrong password"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 139,
+    "scenario": "rejects account deletion when password is missing"
+  },
+  {
+    "source": "Feature/Api/Account/ProfileTest.php",
+    "line": 148,
+    "scenario": "rejects account deletion when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Account/SecurityTest.php",
+    "line": 7,
+    "scenario": "updates password with valid current password"
+  },
+  {
+    "source": "Feature/Api/Account/SecurityTest.php",
+    "line": 25,
+    "scenario": "rejects password update when current password is wrong"
+  },
+  {
+    "source": "Feature/Api/Account/SecurityTest.php",
+    "line": 40,
+    "scenario": "rejects password update when confirmation does not match"
+  },
+  {
+    "source": "Feature/Api/Account/SecurityTest.php",
+    "line": 55,
+    "scenario": "rejects password update when required fields are missing"
+  },
+  {
+    "source": "Feature/Api/Account/SecurityTest.php",
+    "line": 64,
+    "scenario": "rejects password update when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/App/AppListFolderFilterTest.php",
+    "line": 8,
+    "scenario": "filters tracked apps by a specific folder_id"
+  },
+  {
+    "source": "Feature/Api/App/AppListFolderFilterTest.php",
+    "line": 27,
+    "scenario": "returns unassigned tracked apps when folder_id=unassigned"
+  },
+  {
+    "source": "Feature/Api/App/AppListFolderFilterTest.php",
+    "line": 46,
+    "scenario": "returns all tracked apps when no folder filter is provided"
+  },
+  {
+    "source": "Feature/Api/App/AppListFolderFilterTest.php",
+    "line": 63,
+    "scenario": "returns 422 when folder_id does not exist for the user"
+  },
+  {
+    "source": "Feature/Api/App/AppListTest.php",
+    "line": 9,
+    "scenario": "returns the authenticated user's tracked apps"
+  },
+  {
+    "source": "Feature/Api/App/AppListTest.php",
+    "line": 24,
+    "scenario": "filters tracked apps by platform=ios"
+  },
+  {
+    "source": "Feature/Api/App/AppListTest.php",
+    "line": 39,
+    "scenario": "filters tracked apps by platform=android"
+  },
+  {
+    "source": "Feature/Api/App/AppListTest.php",
+    "line": 54,
+    "scenario": "filters tracked apps by search term against display_name"
+  },
+  {
+    "source": "Feature/Api/App/AppListTest.php",
+    "line": 69,
+    "scenario": "filters tracked apps by search term against external_id"
+  },
+  {
+    "source": "Feature/Api/App/AppListTest.php",
+    "line": 90,
+    "scenario": "rejects unauthenticated app list requests"
+  },
+  {
+    "source": "Feature/Api/App/AppListTest.php",
+    "line": 94,
+    "scenario": "does not return apps tracked by other users"
+  },
+  {
+    "source": "Feature/Api/App/AppListingTest.php",
+    "line": 16,
+    "scenario": "returns the existing store listing for the requested locale"
+  },
+  {
+    "source": "Feature/Api/App/AppListingTest.php",
+    "line": 48,
+    "scenario": "returns 404 and queues a sync job when no listing exists for the locale"
+  },
+  {
+    "source": "Feature/Api/App/AppListingTest.php",
+    "line": 64,
+    "scenario": "returns 404 when a listing exists for a different locale only"
+  },
+  {
+    "source": "Feature/Api/App/AppListingTest.php",
+    "line": 91,
+    "scenario": "returns 404 when the app does not exist"
+  },
+  {
+    "source": "Feature/Api/App/AppListingTest.php",
+    "line": 98,
+    "scenario": "validates country_code and locale are required"
+  },
+  {
+    "source": "Feature/Api/App/AppListingTest.php",
+    "line": 111,
+    "scenario": "validates country_code refers to a known country"
+  },
+  {
+    "source": "Feature/Api/App/AppListingTest.php",
+    "line": 124,
+    "scenario": "rejects unauthenticated listing requests"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 17,
+    "scenario": "returns ranking rows for the requested date and collection"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 43,
+    "scenario": "filters out other collections when a specific collection is requested"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 69,
+    "scenario": "returns entries from all collections when collection=all is passed"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 88,
+    "scenario": "returns an empty list when no chart entry exists for the date"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 96,
+    "scenario": "computes previous_rank, rank_change and status when an earlier snapshot exists"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 120,
+    "scenario": "marks the entry as \"new\" when there is no previous snapshot"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 137,
+    "scenario": "marks status as \"down\" when current rank is worse than previous"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 158,
+    "scenario": "returns 404 when ranking endpoint is hit with an unknown app"
+  },
+  {
+    "source": "Feature/Api/App/AppRankingTest.php",
+    "line": 163,
+    "scenario": "rejects an invalid date format on the rankings endpoint"
+  },
+  {
+    "source": "Feature/Api/App/AppSearchTest.php",
+    "line": 14,
+    "scenario": "rejects search when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/App/AppSearchTest.php",
+    "line": 19,
+    "scenario": "returns search results from the iOS scraper and persists them"
+  },
+  {
+    "source": "Feature/Api/App/AppSearchTest.php",
+    "line": 65,
+    "scenario": "returns search results from the Android scraper"
+  },
+  {
+    "source": "Feature/Api/App/AppSearchTest.php",
+    "line": 91,
+    "scenario": "filters results via exclude_external_ids"
+  },
+  {
+    "source": "Feature/Api/App/AppSearchTest.php",
+    "line": 117,
+    "scenario": "rejects search with a term shorter than 2 characters"
+  },
+  {
+    "source": "Feature/Api/App/AppSearchTest.php",
+    "line": 125,
+    "scenario": "rejects search with an invalid platform"
+  },
+  {
+    "source": "Feature/Api/App/AppSearchTest.php",
+    "line": 133,
+    "scenario": "skips scraper results that arrive without an app_id (regression)"
+  },
+  {
+    "source": "Feature/Api/App/AppShowAutoSyncTest.php",
+    "line": 16,
+    "scenario": "dispatches a sync when last_synced_at is null"
+  },
+  {
+    "source": "Feature/Api/App/AppShowAutoSyncTest.php",
+    "line": 30,
+    "scenario": "dispatches a sync when last_synced_at is stale (older than refresh window)"
+  },
+  {
+    "source": "Feature/Api/App/AppShowAutoSyncTest.php",
+    "line": 44,
+    "scenario": "does NOT dispatch a sync when last_synced_at is fresh"
+  },
+  {
+    "source": "Feature/Api/App/AppShowAutoSyncTest.php",
+    "line": 58,
+    "scenario": "does NOT dispatch a sync when an active sync is already PROCESSING"
+  },
+  {
+    "source": "Feature/Api/App/AppShowAutoSyncTest.php",
+    "line": 75,
+    "scenario": "dispatches to the android queue for android apps with stale data"
+  },
+  {
+    "source": "Feature/Api/App/AppShowAutoSyncTest.php",
+    "line": 88,
+    "scenario": "respects a custom tracked_app_refresh_hours value when deciding staleness"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 19,
+    "scenario": "returns AppDetailResource for an existing app"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 45,
+    "scenario": "returns 404 when the app does not exist"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 51,
+    "scenario": "loads listings and versions on the response (whenLoaded relations)"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 83,
+    "scenario": "returns competitors for a tracked app"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 111,
+    "scenario": "returns empty competitors when the user does not track the app"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 139,
+    "scenario": "dispatches a sync job when last_synced_at is null"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 154,
+    "scenario": "does not dispatch a sync job when the app was recently synced"
+  },
+  {
+    "source": "Feature/Api/App/AppShowTest.php",
+    "line": 169,
+    "scenario": "rejects unauthenticated show requests"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 13,
+    "scenario": "registers a previously discovered app and returns 201 with AppDetailResource"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 38,
+    "scenario": "rejects store request when external_id is missing"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 49,
+    "scenario": "rejects store request when platform is missing"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 60,
+    "scenario": "rejects store request when platform is not ios or android"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 74,
+    "scenario": "rejects store request when the app has not been discovered yet"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 86,
+    "scenario": "is idempotent when the same app is registered twice (firstOrCreate)"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 109,
+    "scenario": "attaches the app to the user_apps pivot on registration"
+  },
+  {
+    "source": "Feature/Api/App/AppStoreTest.php",
+    "line": 131,
+    "scenario": "rejects unauthenticated store requests"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncStatusTest.php",
+    "line": 16,
+    "scenario": "returns SyncStatusResource with queued status when no prior sync exists"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncStatusTest.php",
+    "line": 60,
+    "scenario": "returns existing sync status fields when sync is in progress"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncStatusTest.php",
+    "line": 83,
+    "scenario": "exposes failed_items and failed_items_count"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncStatusTest.php",
+    "line": 106,
+    "scenario": "exposes error_message on failed sync"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncStatusTest.php",
+    "line": 121,
+    "scenario": "returns 404 when the app does not exist"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncTest.php",
+    "line": 16,
+    "scenario": "dispatches SyncAppJob and returns SyncStatusResource for iOS app"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncTest.php",
+    "line": 42,
+    "scenario": "dispatches SyncAppJob on the android queue for an android app"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncTest.php",
+    "line": 56,
+    "scenario": "persists a SyncStatus row after dispatching sync"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncTest.php",
+    "line": 69,
+    "scenario": "does NOT dispatch a new SyncAppJob when status is PROCESSING"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncTest.php",
+    "line": 86,
+    "scenario": "re-queues a sync after a previous COMPLETED run"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncTest.php",
+    "line": 107,
+    "scenario": "re-queues a sync after a previous FAILED run and clears error state"
+  },
+  {
+    "source": "Feature/Api/App/AppSyncTest.php",
+    "line": 124,
+    "scenario": "returns 404 when the app does not exist"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 11,
+    "scenario": "tracks an app and returns 204"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 28,
+    "scenario": "is idempotent: re-tracking the same app does not duplicate user_apps"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 42,
+    "scenario": "returns 404 when tracking an app that does not exist"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 48,
+    "scenario": "untracks an app and returns 204"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 66,
+    "scenario": "untrack deletes the user's competitor mappings for the app"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 97,
+    "scenario": "untrack does not affect other users' competitor mappings for the same app"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 129,
+    "scenario": "untrack is idempotent when the user was never tracking the app"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 140,
+    "scenario": "rejects unauthenticated track requests"
+  },
+  {
+    "source": "Feature/Api/App/AppTrackTest.php",
+    "line": 149,
+    "scenario": "rejects unauthenticated untrack requests"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 26,
+    "scenario": "groups competitors by parent app for the authenticated user"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 59,
+    "scenario": "excludes tracked apps that have no competitor mappings"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 81,
+    "scenario": "returns an empty list when the user has no tracked apps"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 91,
+    "scenario": "scopes results to the authenticated user only"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 116,
+    "scenario": "filters groups by platform=ios"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 147,
+    "scenario": "filters groups by platform=android"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 170,
+    "scenario": "rejects an invalid platform filter"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 184,
+    "scenario": "returns the full group when search matches the parent display_name"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 212,
+    "scenario": "returns only matching competitors when only a competitor display_name matches"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 244,
+    "scenario": "drops groups whose parent and competitors all fail the search"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 260,
+    "scenario": "search match is case-insensitive"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 279,
+    "scenario": "rejects a search term longer than 100 characters"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 294,
+    "scenario": "filters competitor groups by folder_id"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 321,
+    "scenario": "returns unassigned parent groups when folder_id=unassigned"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 348,
+    "scenario": "rejects an unknown folder_id with 422"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorAllTest.php",
+    "line": 360,
+    "scenario": "rejects unauthenticated competitor-all requests"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 55,
+    "scenario": "lists competitors only for the authenticated user on a tracked app"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 87,
+    "scenario": "returns an empty list when the user has no competitors on a tracked app"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 96,
+    "scenario": "returns 404 when listing competitors for an app the user does not track"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 105,
+    "scenario": "returns 404 when listing competitors for a non-existent app"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 112,
+    "scenario": "rejects unauthenticated competitor index requests"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 123,
+    "scenario": "creates a competitor mapping with competitor_app_id (legacy flow)"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 147,
+    "scenario": "defaults relationship to direct when omitted"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 157,
+    "scenario": "accepts every CompetitorRelationship enum value"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 172,
+    "scenario": "rejects an invalid relationship value"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 183,
+    "scenario": "rejects a competitor_app_id that does not exist"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 193,
+    "scenario": "requires either competitor_app_id or competitor_external_id"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 205,
+    "scenario": "allows adding a competitor that the user does NOT track (regression: 454e1a5)"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 227,
+    "scenario": "creates the competitor app row via competitor_external_id without tracking it"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 247,
+    "scenario": "rejects a duplicate competitor mapping for the same (user, app, competitor)"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 274,
+    "scenario": "returns 404 when adding a competitor to an untracked parent app"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 287,
+    "scenario": "rejects unauthenticated competitor store requests"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 299,
+    "scenario": "deletes a competitor mapping owned by the caller"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 318,
+    "scenario": "returns 404 when deleting another user's competitor mapping"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 340,
+    "scenario": "returns 404 when the competitor id does not belong to the given parent app"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 360,
+    "scenario": "returns 404 when deleting a non-existent competitor id"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 368,
+    "scenario": "rejects unauthenticated competitor destroy requests"
+  },
+  {
+    "source": "Feature/Api/App/CompetitorTest.php",
+    "line": 380,
+    "scenario": "removes the caller's competitor mappings when they untrack the parent app"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 38,
+    "scenario": "returns n-gram keyword density for an app listing"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 57,
+    "scenario": "filters n-gram rows by the requested ngram size"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 68,
+    "scenario": "sorts density desc by default and respects order=asc"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 79,
+    "scenario": "sorts by count when sort=count is requested"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 90,
+    "scenario": "returns an empty paginator when the app has no listing for the requested locale"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 101,
+    "scenario": "returns 404 for keywords when the app does not exist"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 106,
+    "scenario": "compares keyword density across competitor apps"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 141,
+    "scenario": "returns a non-null name for every app in the compare payload (regression)"
+  },
+  {
+    "source": "Feature/Api/App/KeywordTest.php",
+    "line": 182,
+    "scenario": "rejects compare requests when app_ids contain non-competitors"
+  },
+  {
+    "source": "Feature/Api/App/MoveToFolderTest.php",
+    "line": 10,
+    "scenario": "moves a tracked app into a folder and updates the pivot"
+  },
+  {
+    "source": "Feature/Api/App/MoveToFolderTest.php",
+    "line": 32,
+    "scenario": "removes a tracked app from its folder when folder_id is null"
+  },
+  {
+    "source": "Feature/Api/App/MoveToFolderTest.php",
+    "line": 54,
+    "scenario": "rejects moving an app into another user's folder"
+  },
+  {
+    "source": "Feature/Api/App/MoveToFolderTest.php",
+    "line": 80,
+    "scenario": "returns 404 when moving an untracked app"
+  },
+  {
+    "source": "Feature/Api/App/MoveToFolderTest.php",
+    "line": 97,
+    "scenario": "returns 404 when the app does not exist"
+  },
+  {
+    "source": "Feature/Api/App/MoveToFolderTest.php",
+    "line": 108,
+    "scenario": "returns 422 when folder does not exist"
+  },
+  {
+    "source": "Feature/Api/App/RatingByCountryTest.php",
+    "line": 13,
+    "scenario": "returns the latest AppMetric per country for an iOS app"
+  },
+  {
+    "source": "Feature/Api/App/RatingByCountryTest.php",
+    "line": 43,
+    "scenario": "includes the GLOBAL_COUNTRY (zz) row if present — it is just one country among others on iOS"
+  },
+  {
+    "source": "Feature/Api/App/RatingByCountryTest.php",
+    "line": 62,
+    "scenario": "flags the country-breakdown endpoint as unsupported on Android"
+  },
+  {
+    "source": "Feature/Api/App/RatingByCountryTest.php",
+    "line": 77,
+    "scenario": "returns an empty list when an iOS app has no metric rows"
+  },
+  {
+    "source": "Feature/Api/App/RatingByCountryTest.php",
+    "line": 87,
+    "scenario": "returns 404 from the country breakdown endpoint when the app is unknown"
+  },
+  {
+    "source": "Feature/Api/App/RatingHistoryTest.php",
+    "line": 19,
+    "scenario": "returns one history point per day in the requested window, sorted ascending"
+  },
+  {
+    "source": "Feature/Api/App/RatingHistoryTest.php",
+    "line": 42,
+    "scenario": "emits null placeholder points for days that have no snapshot"
+  },
+  {
+    "source": "Feature/Api/App/RatingHistoryTest.php",
+    "line": 63,
+    "scenario": "computes per-star delta_breakdown and delta_total against the prior snapshot"
+  },
+  {
+    "source": "Feature/Api/App/RatingHistoryTest.php",
+    "line": 87,
+    "scenario": "respects the days parameter for the window size"
+  },
+  {
+    "source": "Feature/Api/App/RatingHistoryTest.php",
+    "line": 95,
+    "scenario": "defaults to a 30-day window when days is not provided"
+  },
+  {
+    "source": "Feature/Api/App/RatingHistoryTest.php",
+    "line": 103,
+    "scenario": "rejects history requests with days outside the allowed 1..90 range"
+  },
+  {
+    "source": "Feature/Api/App/RatingHistoryTest.php",
+    "line": 110,
+    "scenario": "returns 404 from the history endpoint for unknown apps"
+  },
+  {
+    "source": "Feature/Api/App/RatingSummaryTest.php",
+    "line": 13,
+    "scenario": "returns the latest aggregated rating snapshot and a 30-day baseline trend"
+  },
+  {
+    "source": "Feature/Api/App/RatingSummaryTest.php",
+    "line": 45,
+    "scenario": "returns null trend deltas when no baseline snapshot is available within 30 days"
+  },
+  {
+    "source": "Feature/Api/App/RatingSummaryTest.php",
+    "line": 66,
+    "scenario": "returns zeroed numeric fields with no breakdown when the app has no metrics at all"
+  },
+  {
+    "source": "Feature/Api/App/RatingSummaryTest.php",
+    "line": 79,
+    "scenario": "aggregates iOS multi-country rows into a global summary using rating-count weighting"
+  },
+  {
+    "source": "Feature/Api/App/RatingSummaryTest.php",
+    "line": 103,
+    "scenario": "reads the global (zz) row for Android ratings summary"
+  },
+  {
+    "source": "Feature/Api/App/RatingSummaryTest.php",
+    "line": 126,
+    "scenario": "returns 404 from the rating summary endpoint when the app is unknown"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 8,
+    "scenario": "registers a new user and returns a token"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 27,
+    "scenario": "rejects registration with mismatched password confirmation"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 39,
+    "scenario": "rejects registration when email is already taken"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 53,
+    "scenario": "rejects registration when required fields are missing"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 60,
+    "scenario": "rejects registration with invalid email format"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 72,
+    "scenario": "logs in with valid credentials and returns a token"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 94,
+    "scenario": "rejects login with wrong password"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 108,
+    "scenario": "rejects login when user does not exist"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 117,
+    "scenario": "rejects login when fields are missing"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 124,
+    "scenario": "replaces existing auth-token on re-login"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 146,
+    "scenario": "revokes the current token on logout"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 154,
+    "scenario": "returns the authenticated user on /me"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 166,
+    "scenario": "rejects /me when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Auth/AuthTest.php",
+    "line": 170,
+    "scenario": "rejects logout when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 13,
+    "scenario": "returns store-listing changes for the user's tracked apps"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 42,
+    "scenario": "filters by platform=ios"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 59,
+    "scenario": "filters by field_changed"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 76,
+    "scenario": "filters by search against app display_name"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 93,
+    "scenario": "paginates 50 per page by default and supports page=2"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 120,
+    "scenario": "excludes apps that are only competitors (not tracked)"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 138,
+    "scenario": "excludes an app from the tracked feed when it is also a competitor"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 161,
+    "scenario": "does not leak changes belonging to other users' tracked apps"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 180,
+    "scenario": "rejects unauthenticated requests"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 188,
+    "scenario": "filters tracked changes by folder_id"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 208,
+    "scenario": "returns only unassigned tracked changes when folder_id=unassigned"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/AppChangesTest.php",
+    "line": 228,
+    "scenario": "rejects an unknown folder_id with 422 on tracked changes"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 12,
+    "scenario": "returns store-listing changes for the user's competitor apps only"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 34,
+    "scenario": "shows an app that is BOTH tracked AND a competitor only on the competitors feed (audit:49)"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 61,
+    "scenario": "filters competitors feed by platform"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 90,
+    "scenario": "filters competitors feed by field_changed"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 111,
+    "scenario": "filters competitors feed by search against app name"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 138,
+    "scenario": "paginates 50 per page by default and supports page=2 on competitors feed"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 170,
+    "scenario": "does not leak another user's competitor changes"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 202,
+    "scenario": "rejects unauthenticated requests on competitors feed"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 211,
+    "scenario": "filters competitor changes by the parent app's folder_id"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 242,
+    "scenario": "returns competitors of unassigned parents when folder_id=unassigned"
+  },
+  {
+    "source": "Feature/Api/ChangeMonitor/CompetitorChangesTest.php",
+    "line": 273,
+    "scenario": "rejects an unknown folder_id with 422 on competitor changes"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartIndexTest.php",
+    "line": 22,
+    "scenario": "returns chart entries for the requested chart with meta info"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartIndexTest.php",
+    "line": 73,
+    "scenario": "returns data: [] with a message when no snapshot exists at all"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartIndexTest.php",
+    "line": 93,
+    "scenario": "computes rank_change against the previous-day snapshot"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartIndexTest.php",
+    "line": 144,
+    "scenario": "falls back to the platform \"All\" category when category_id is omitted"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartIndexTest.php",
+    "line": 173,
+    "scenario": "defaults country_code to \"us\" when not provided"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartIndexTest.php",
+    "line": 196,
+    "scenario": "rejects requests missing required platform/collection parameters"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartTodayTest.php",
+    "line": 19,
+    "scenario": "does NOT dispatch a fetch when today's snapshot is already present (isStale=false)"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartTodayTest.php",
+    "line": 44,
+    "scenario": "dispatches a fresh fetch when the most recent snapshot is older than today (isStale=true)"
+  },
+  {
+    "source": "Feature/Api/Chart/ChartTodayTest.php",
+    "line": 75,
+    "scenario": "also dispatches a fetch when no snapshot exists at all"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 11,
+    "scenario": "rejects dashboard when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 15,
+    "scenario": "returns zeroed dashboard for a user without any tracked apps"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 27,
+    "scenario": "aggregates counts for the authenticated user only"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 56,
+    "scenario": "returns at most 5 recent_changes ordered by detected_at desc"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 85,
+    "scenario": "exposes app_name on each recent_changes item (regression)"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 107,
+    "scenario": "falls back to external_id for app_name when display_name is missing"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 123,
+    "scenario": "eager loads the app relation on recent_changes to avoid N+1"
+  },
+  {
+    "source": "Feature/Api/DashboardTest.php",
+    "line": 156,
+    "scenario": "only includes changes from apps the user tracks"
+  },
+  {
+    "source": "Feature/Api/Explorer/IconsTest.php",
+    "line": 26,
+    "scenario": "returns apps with a non-null icon_url"
+  },
+  {
+    "source": "Feature/Api/Explorer/IconsTest.php",
+    "line": 49,
+    "scenario": "filters icon explorer by platform"
+  },
+  {
+    "source": "Feature/Api/Explorer/IconsTest.php",
+    "line": 68,
+    "scenario": "filters icon explorer by category_id"
+  },
+  {
+    "source": "Feature/Api/Explorer/IconsTest.php",
+    "line": 82,
+    "scenario": "filters icon explorer by search against display_name"
+  },
+  {
+    "source": "Feature/Api/Explorer/IconsTest.php",
+    "line": 92,
+    "scenario": "paginates icons with per_page and supports page=2 (infinite-scroll friendly)"
+  },
+  {
+    "source": "Feature/Api/Explorer/ScreenshotsTest.php",
+    "line": 32,
+    "scenario": "returns apps with an English listing and non-empty screenshots"
+  },
+  {
+    "source": "Feature/Api/Explorer/ScreenshotsTest.php",
+    "line": 54,
+    "scenario": "filters screenshot explorer by platform"
+  },
+  {
+    "source": "Feature/Api/Explorer/ScreenshotsTest.php",
+    "line": 77,
+    "scenario": "filters screenshot explorer by category_id"
+  },
+  {
+    "source": "Feature/Api/Explorer/ScreenshotsTest.php",
+    "line": 91,
+    "scenario": "filters screenshot explorer by search against the app display name"
+  },
+  {
+    "source": "Feature/Api/Explorer/ScreenshotsTest.php",
+    "line": 118,
+    "scenario": "paginates screenshots with per_page and supports page=2"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 9,
+    "scenario": "returns the authenticated user's folders with apps_count and sort_order DESC"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 38,
+    "scenario": "does not return folders owned by other users"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 52,
+    "scenario": "creates a folder and returns 201 with FolderResource shape"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 75,
+    "scenario": "rejects folder creation without a name"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 86,
+    "scenario": "rejects folder creation with an invalid color"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 98,
+    "scenario": "rejects duplicate folder names for the same user"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 112,
+    "scenario": "allows the same folder name across different users"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 130,
+    "scenario": "renames a folder"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 146,
+    "scenario": "updates folder color"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 158,
+    "scenario": "updates folder sort_order"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 170,
+    "scenario": "returns 404 when patching another user's folder (no info leak)"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 183,
+    "scenario": "deletes a folder and returns 204"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 193,
+    "scenario": "nulls user_apps.folder_id when its folder is deleted"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 210,
+    "scenario": "returns 404 when deleting another user's folder"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 221,
+    "scenario": "rejects unauthenticated folder index requests"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 225,
+    "scenario": "rejects unauthenticated folder create requests"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 232,
+    "scenario": "rejects unauthenticated folder update requests"
+  },
+  {
+    "source": "Feature/Api/Folder/FolderCrudTest.php",
+    "line": 241,
+    "scenario": "rejects unauthenticated folder delete requests"
+  },
+  {
+    "source": "Feature/Api/Helper/CountriesTest.php",
+    "line": 9,
+    "scenario": "rejects countries listing when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Helper/CountriesTest.php",
+    "line": 13,
+    "scenario": "returns the list of active countries seeded by CountrySeeder"
+  },
+  {
+    "source": "Feature/Api/Helper/CountriesTest.php",
+    "line": 34,
+    "scenario": "excludes countries that are inactive on both platforms"
+  },
+  {
+    "source": "Feature/Api/Helper/CountriesTest.php",
+    "line": 57,
+    "scenario": "orders countries alphabetically by name"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 7,
+    "scenario": "rejects store-categories listing when unauthenticated"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 11,
+    "scenario": "returns store categories seeded by StoreCategorySeeder"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 24,
+    "scenario": "filters categories by platform=ios"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 35,
+    "scenario": "filters categories by platform=android"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 46,
+    "scenario": "rejects an unknown platform value"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 54,
+    "scenario": "rejects an unknown type value"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 62,
+    "scenario": "orders categories alphabetically by name"
+  },
+  {
+    "source": "Feature/Api/Helper/StoreCategoriesTest.php",
+    "line": 74,
+    "scenario": "returns only categories matching the given platform when both exist"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 9,
+    "scenario": "imports and tracks the given apps for the authenticated user"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 38,
+    "scenario": "is idempotent — re-importing the same app does not duplicate the track"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 58,
+    "scenario": "rejects import when external_ids is missing"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 69,
+    "scenario": "rejects import when external_ids is empty"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 82,
+    "scenario": "rejects import when more than 50 ids are submitted"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 100,
+    "scenario": "rejects import when an external_id is not yet discovered in the catalog"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 113,
+    "scenario": "only matches apps on the requested platform"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 132,
+    "scenario": "imports android apps onto the android queue when platform=android"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherImportTest.php",
+    "line": 148,
+    "scenario": "rejects unauthenticated import requests"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherIndexTest.php",
+    "line": 10,
+    "scenario": "returns publishers tied to the authenticated user tracked apps"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherIndexTest.php",
+    "line": 33,
+    "scenario": "rejects unauthenticated index requests"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherIndexTest.php",
+    "line": 37,
+    "scenario": "returns an empty list when the user has no tracked apps"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherIndexTest.php",
+    "line": 49,
+    "scenario": "orders publishers alphabetically by name"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherIndexTest.php",
+    "line": 70,
+    "scenario": "exposes apps_count scoped to the user tracked apps, not the global publisher catalog"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherIndexTest.php",
+    "line": 98,
+    "scenario": "ignores the platform query parameter (controller does not filter by platform)"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherIndexTest.php",
+    "line": 117,
+    "scenario": "returns the platform string for each publisher"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 13,
+    "scenario": "groups iOS scraper search results by publisher"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 54,
+    "scenario": "rejects search when term is shorter than 2 characters"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 61,
+    "scenario": "rejects search when term is missing"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 68,
+    "scenario": "rejects search when platform is missing"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 75,
+    "scenario": "rejects search when platform is not ios or android"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 82,
+    "scenario": "returns an empty list when the scraper throws"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 92,
+    "scenario": "hits the Google Play scraper when platform is android"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 115,
+    "scenario": "discovers apps in the catalog as a side effect of search"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 139,
+    "scenario": "skips results that have no developer name"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherSearchTest.php",
+    "line": 156,
+    "scenario": "rejects an unknown country_code"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherShowTest.php",
+    "line": 10,
+    "scenario": "returns publisher details with the user tracked apps only"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherShowTest.php",
+    "line": 39,
+    "scenario": "returns 404 when the publisher does not exist"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherShowTest.php",
+    "line": 46,
+    "scenario": "matches by platform — same external_id on a different platform is a 404"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherShowTest.php",
+    "line": 58,
+    "scenario": "accepts an optional name query parameter without altering the response"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherShowTest.php",
+    "line": 77,
+    "scenario": "returns an empty apps array when the user tracks none of the publisher apps"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherShowTest.php",
+    "line": 91,
+    "scenario": "does not leak apps tracked by other users"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherShowTest.php",
+    "line": 113,
+    "scenario": "rejects unauthenticated show requests"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherStoreAppsTest.php",
+    "line": 10,
+    "scenario": "returns the store apps payload and discovers each app in the catalog"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherStoreAppsTest.php",
+    "line": 63,
+    "scenario": "marks already-tracked apps with is_tracked=true"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherStoreAppsTest.php",
+    "line": 94,
+    "scenario": "returns 404 when the publisher is not in the DB"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherStoreAppsTest.php",
+    "line": 103,
+    "scenario": "returns an empty apps list when the scraper call fails"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherStoreAppsTest.php",
+    "line": 120,
+    "scenario": "hits the Google Play scraper for android publishers"
+  },
+  {
+    "source": "Feature/Api/Publisher/PublisherStoreAppsTest.php",
+    "line": 151,
+    "scenario": "rejects unauthenticated store-apps requests"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 20,
+    "scenario": "fetchIdentity maps a successful identity response into ConnectorResult::success"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 61,
+    "scenario": "fetchIdentity converts \"Never updated\" current_version_release_date to null (regression 0a021d8)"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 81,
+    "scenario": "fetchIdentity returns failure on 404"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 94,
+    "scenario": "fetchIdentity returns failure on HTTP 500"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 108,
+    "scenario": "fetchIdentity returns failure on empty body"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 127,
+    "scenario": "fetchListings passes subtitle through unmodified even when 256+ chars (no truncation, audit commit f5f7af6)"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 148,
+    "scenario": "fetchListings routes locale to /listings?locale=&country= and maps screenshots"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 176,
+    "scenario": "fetchListings falls back to country as locale when locale is null"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 200,
+    "scenario": "fetchMetrics maps rating, rating_count, rating_breakdown and installs_range string"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 229,
+    "scenario": "fetchDeveloperApps returns the mapped apps array"
+  },
+  {
+    "source": "Feature/Connectors/GooglePlayConnectorTest.php",
+    "line": 261,
+    "scenario": "fetchDeveloperApps returns failure when scraper returns 500 with FastAPI-style detail"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 21,
+    "scenario": "fetchIdentity maps a successful identity response into ConnectorResult::success"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 69,
+    "scenario": "fetchIdentity returns failure on 404"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 82,
+    "scenario": "fetchIdentity returns failure on HTTP 500"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 96,
+    "scenario": "fetchIdentity returns failure on empty/null body"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 110,
+    "scenario": "fetchIdentity returns null for unparseable date strings (parseDate regression)"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 136,
+    "scenario": "fetchListings routes locale via lang query and maps screenshots array"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 176,
+    "scenario": "fetchListings omits lang query when locale is null"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 203,
+    "scenario": "fetchMetrics maps rating, rating_count and rating_breakdown"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 230,
+    "scenario": "fetchDeveloperApps returns the mapped apps array"
+  },
+  {
+    "source": "Feature/Connectors/ITunesLookupConnectorTest.php",
+    "line": 264,
+    "scenario": "fetchDeveloperApps returns failure on HTTP error"
+  },
+  {
+    "source": "Feature/Jobs/FetchChartSnapshotJobTest.php",
+    "line": 37,
+    "scenario": "implements ShouldQueue but NOT ShouldBeUnique"
+  },
+  {
+    "source": "Feature/Jobs/FetchChartSnapshotJobTest.php",
+    "line": 44,
+    "scenario": "exposes the UI-triggered tries+backoff configuration"
+  },
+  {
+    "source": "Feature/Jobs/FetchChartSnapshotJobTest.php",
+    "line": 57,
+    "scenario": "dispatchSync fetches the chart, creates a snapshot and discovers apps"
+  },
+  {
+    "source": "Feature/Jobs/FetchChartSnapshotJobTest.php",
+    "line": 82,
+    "scenario": "dispatchSync is a no-op when a snapshot already exists for today"
+  },
+  {
+    "source": "Feature/Jobs/FetchChartSnapshotJobTest.php",
+    "line": 101,
+    "scenario": "dispatchSync logs a warning and creates no snapshot when results are empty"
+  },
+  {
+    "source": "Feature/Jobs/FetchChartSnapshotJobTest.php",
+    "line": 114,
+    "scenario": "routes to the GooglePlay connector when invoked for android"
+  },
+  {
+    "source": "Feature/Jobs/FetchChartSnapshotJobTest.php",
+    "line": 135,
+    "scenario": "does not create new App rows when DiscoverSource::Trending is disabled for the platform"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 18,
+    "scenario": "implements ShouldQueue and ShouldBeUnique"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 25,
+    "scenario": "has $tries=1 and the regression $timeout=1800"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 35,
+    "scenario": "produces a per-sync-status uniqueId"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 47,
+    "scenario": "retries transient items via AppSyncer and drops successful ones from failed_items"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 80,
+    "scenario": "skips items whose next_retry_at is still in the future"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 109,
+    "scenario": "skips items marked permanent_failure without invoking AppSyncer"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 144,
+    "scenario": "flags an item as permanent_failure once retry_count reaches maxForReason"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 185,
+    "scenario": "sets status=FAILED when all remaining items are permanent_failure (audit bug fix)"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 220,
+    "scenario": "keeps status=COMPLETED when at least one transient item remains"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 269,
+    "scenario": "is a no-op when failed_items is empty (current_step stays null)"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 287,
+    "scenario": "skips when sync_status row is missing"
+  },
+  {
+    "source": "Feature/Jobs/ReconcileFailedItemsJobTest.php",
+    "line": 295,
+    "scenario": "skips when the app is currently being full-synced (PROCESSING & not reconciling)"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 28,
+    "scenario": "implements ShouldQueue and ShouldBeUnique"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 35,
+    "scenario": "exposes the contract retry+backoff configuration"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 44,
+    "scenario": "generates a per-app uniqueId"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 60,
+    "scenario": "dispatches on the platform-separated on-demand queue (iOS)"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 68,
+    "scenario": "dispatches on the platform-separated tracked queue (Android)"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 82,
+    "scenario": "drives status from QUEUED → PROCESSING (inside syncAll) and assigns a job_id"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 110,
+    "scenario": "runs identity → finalize and marks the SyncStatus COMPLETED on the happy path"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 155,
+    "scenario": "marks SyncStatus FAILED with error_message when identity fetch fails"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 176,
+    "scenario": "catches AppSyncer throwables, marks status FAILED, and rethrows"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 194,
+    "scenario": "returns silently when the app does not exist"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 203,
+    "scenario": "skips when another worker is already processing the same app"
+  },
+  {
+    "source": "Feature/Jobs/SyncAppJobTest.php",
+    "line": 227,
+    "scenario": "produces the same uniqueId across duplicate dispatch attempts for the same app"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 49,
+    "scenario": "implements ShouldQueue and ShouldBeUnique"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 56,
+    "scenario": "exposes tries=2 + backoff configuration"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 64,
+    "scenario": "builds a uniqueId scoped to platform:collection:country:category"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 76,
+    "scenario": "creates a ChartSnapshot and ChartEntry rows, discovering new apps via App::discover"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 107,
+    "scenario": "skips creating a snapshot when one already exists for today"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 128,
+    "scenario": "skips snapshot creation when the connector returns an empty result set"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 144,
+    "scenario": "routes the call to the GooglePlay connector on android"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 166,
+    "scenario": "rethrows when the connector throws and logs a warning"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 189,
+    "scenario": "integrates with the real iTunes connector via Http::fake"
+  },
+  {
+    "source": "Feature/Jobs/SyncChartSnapshotJobTest.php",
+    "line": 222,
+    "scenario": "produces identical uniqueIds for duplicate (platform, collection, country, category) tuples"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 35,
+    "scenario": "App::discover returns null and creates no row when external_id is empty"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 53,
+    "scenario": "KeywordController::compare returns a non-null name for every app payload"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 97,
+    "scenario": "Dashboard recent_changes[].app_name is non-null when StoreListingChange exists"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 124,
+    "scenario": "Dashboard does not N+1 when many StoreListingChanges exist (with(app) eager load)"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 164,
+    "scenario": "ReconcileFailedItemsJob marks status as FAILED when only permanent_failures remain"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 192,
+    "scenario": "ReconcileFailedItemsJob keeps status as COMPLETED when only transient items remain"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 221,
+    "scenario": "AppSyncer::syncIdentity does not throw when connector payload contains removed columns"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 246,
+    "scenario": "app_metrics dropped the five dead columns (rating_delta, price, currency, installs_range, file_size_bytes)"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 253,
+    "scenario": "AppMetric model fillable no longer accepts the dropped columns"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 265,
+    "scenario": "AppDetailResource.file_size_bytes is sourced from the latest AppVersion, not app_metrics"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 292,
+    "scenario": "GooglePlayConnector::fetchIdentity returns null release dates when the scraper sends \"Never updated\""
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 331,
+    "scenario": "ReconcileFailedItemsJob declares a 1800-second timeout"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 344,
+    "scenario": "app_store_listings.subtitle accepts strings longer than 255 chars"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 368,
+    "scenario": "app_store_listings.subtitle column type is TEXT (not VARCHAR)"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 388,
+    "scenario": "ChartEntry has timestamps disabled and the columns are gone from the table"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 394,
+    "scenario": "ChartEntry::create does not throw because of missing timestamps columns"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 416,
+    "scenario": "trending_chart_entries no longer has the standalone app_id index"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 433,
+    "scenario": "cleanup-failed-items command nulls failed_items on terminal rows older than 14 days"
+  },
+  {
+    "source": "Feature/Regression/AuditFixesTest.php",
+    "line": 460,
+    "scenario": "cleanup-failed-items command leaves fresh terminal rows untouched"
+  },
+  {
+    "source": "Unit/Services/AppRegistrarTest.php",
+    "line": 14,
+    "scenario": "creates a new App row when ensureExists is called with a new (external_id, platform) pair"
+  },
+  {
+    "source": "Unit/Services/AppRegistrarTest.php",
+    "line": 27,
+    "scenario": "is idempotent — calling ensureExists twice with the same (external_id, platform) returns the same row"
+  },
+  {
+    "source": "Unit/Services/AppRegistrarTest.php",
+    "line": 35,
+    "scenario": "treats the same external_id on a different platform as a distinct app"
+  },
+  {
+    "source": "Unit/Services/AppRegistrarTest.php",
+    "line": 43,
+    "scenario": "register() attaches the app to the user via the user_apps pivot"
+  },
+  {
+    "source": "Unit/Services/AppRegistrarTest.php",
+    "line": 53,
+    "scenario": "register() is idempotent — second call does not duplicate the pivot row"
+  },
+  {
+    "source": "Unit/Services/AppRegistrarTest.php",
+    "line": 63,
+    "scenario": "register() reuses the catalog row created by ensureExists (does not duplicate apps)"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 34,
+    "scenario": "saveVersion returns null when the identity payload has no version string"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 43,
+    "scenario": "saveVersion creates an AppVersion row when a version string is present"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 58,
+    "scenario": "saveVersion is idempotent for the same (app_id, version) — no duplicate row"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 70,
+    "scenario": "saveMetric creates a new metric row when none exists for (app, country, date)"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 90,
+    "scenario": "saveMetric updates an existing metric row for the same (app, country, date) instead of inserting a duplicate"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 104,
+    "scenario": "saveMetric writes a row with is_available=false when the storefront returned an empty response"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 119,
+    "scenario": "saveMetric accepts a null version (e.g. when identity gave no version string)"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 131,
+    "scenario": "updateVersionDetails copies file_size_bytes from the identity payload onto the version"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 145,
+    "scenario": "updateVersionDetails keeps the existing file_size_bytes when identity does not provide one"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 159,
+    "scenario": "detectChanges writes one StoreListingChange row for a changed title"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 192,
+    "scenario": "detectChanges does not duplicate rows when called twice for the same diff"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 219,
+    "scenario": "saveListing does not emit a diff when the previous listing is from the same version (existing.version_id === version.id)"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 247,
+    "scenario": "detectLocaleChanges writes a locale_added row for every locale present only in the current version"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 283,
+    "scenario": "detectLocaleChanges writes a locale_removed row for every locale dropped between previous and current versions"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 319,
+    "scenario": "detectLocaleChanges is a no-op when there is no previous version"
+  },
+  {
+    "source": "Unit/Services/AppSyncerPartialTest.php",
+    "line": 334,
+    "scenario": "detectLocaleChanges is a no-op when given a null current version"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 32,
+    "scenario": "returns 1-gram, 2-gram and 3-gram rows for a simple input"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 41,
+    "scenario": "computes 1-gram count and density correctly"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 60,
+    "scenario": "computes 2-gram counts correctly"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 73,
+    "scenario": "computes 3-gram counts correctly"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 85,
+    "scenario": "filters out English stopwords (the, and, is) from the token stream"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 97,
+    "scenario": "drops 1-character tokens (MIN_KEYWORD_LENGTH = 2)"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 104,
+    "scenario": "lowercases tokens before counting"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 112,
+    "scenario": "strips HTML tags and URLs before tokenising"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 122,
+    "scenario": "returns an empty array when the listing has no usable text"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 138,
+    "scenario": "returns an empty array when analyzeText receives an empty string"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 143,
+    "scenario": "returns an empty array when only stopwords remain after filtering"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 147,
+    "scenario": "handles a null subtitle without crashing and still counts title + description tokens"
+  },
+  {
+    "source": "Unit/Services/KeywordAnalyzerTest.php",
+    "line": 168,
+    "scenario": "merges title + subtitle + description + whats_new into the same token stream"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 14,
+    "scenario": "returns the matching id when a valid external_id is provided for the platform"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 23,
+    "scenario": "returns the matching id for an external_id even when name is also provided"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 32,
+    "scenario": "falls back to name lookup when external_id is null"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 42,
+    "scenario": "falls back to name lookup when external_id is an empty string"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 52,
+    "scenario": "matches name case-insensitively and trims whitespace"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 61,
+    "scenario": "returns null and logs an unknown_categories error when both external_id and name are missing"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 79,
+    "scenario": "returns null and logs to unknown_categories when the category cannot be matched"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 102,
+    "scenario": "forwards the caller-provided context array into the unknown_categories log payload"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 119,
+    "scenario": "uses an in-process static cache so a fresh resolver instance sees the same map"
+  },
+  {
+    "source": "Unit/Services/StoreCategoryResolverTest.php",
+    "line": 128,
+    "scenario": "caches the external_id map per platform — a row inserted after the first lookup is invisible to the cached map"
+  }
+]

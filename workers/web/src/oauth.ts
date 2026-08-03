@@ -75,13 +75,17 @@ oauth.post('/oauth/authorize', async (c) => {
   const clientId = String(form.client_id ?? ''), redirectUri = String(form.redirect_uri ?? '')
   const raw = await c.env.OAUTH_KV.get(`client:${clientId}`)
   const client = raw ? JSON.parse(raw) as OAuthClient : null
-  if (!client || !client.redirect_uris.includes(redirectUri)) return c.json({ error: 'invalid_client' }, 400)
+  const responseType = String(form.response_type ?? '')
+  const codeChallenge = String(form.code_challenge ?? '')
+  if (!client || !client.redirect_uris.includes(redirectUri) || responseType !== 'code' || form.code_challenge_method !== 'S256' || codeChallenge.length < 43 || codeChallenge.length > 128) return c.json({ error: 'invalid_request' }, 400)
   const redirect = new URL(redirectUri)
   if (form.state) redirect.searchParams.set('state', String(form.state))
   if (form.decision !== 'allow') { redirect.searchParams.set('error', 'access_denied'); return c.redirect(redirect.toString()) }
-  const requested = String(form.scope ?? 'openapps:read').split(' ').filter((scope) => scopes.includes(scope))
+  const rawScopes = String(form.scope ?? 'openapps:read').split(' ').filter(Boolean)
+  if (rawScopes.some((scope) => !scopes.includes(scope))) return c.json({ error: 'invalid_scope' }, 400)
+  const requested = rawScopes.filter((scope) => scopes.includes(scope))
   const code = crypto.randomUUID()
-  const data: AuthorizationCode = { userId: auth.user.id, clientId, redirectUri, challenge: String(form.code_challenge ?? ''), scope: requested.length ? requested : ['openapps:read'] }
+  const data: AuthorizationCode = { userId: auth.user.id, clientId, redirectUri, challenge: codeChallenge, scope: requested.length ? requested : ['openapps:read'] }
   await c.env.OAUTH_KV.put(`code:${code}`, JSON.stringify(data), { expirationTtl: 600 })
   redirect.searchParams.set('code', code)
   return c.redirect(redirect.toString())

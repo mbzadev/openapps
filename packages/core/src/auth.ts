@@ -45,6 +45,8 @@ export async function authenticateRequest(db: Database, request: Request): Promi
     FROM personal_access_tokens t JOIN users u ON u.id = t.user_id
     WHERE t.token_hash = ? LIMIT 1`, tokenHash)
   if (!row || (row.expires_at && row.expires_at <= nowIso())) return null
+  await db.prepare('UPDATE personal_access_tokens SET last_used_at=?,updated_at=? WHERE id=?')
+    .bind(nowIso(), nowIso(), row.token_id).run()
   return {
     user: { id: row.id, name: row.name, email: row.email, created_at: row.created_at, updated_at: row.updated_at },
     tokenId: row.token_id,

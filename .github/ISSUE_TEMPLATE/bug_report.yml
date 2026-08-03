@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in AppStoreCat
+description: Report a bug in OpenApps by MBZA
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -14,11 +14,11 @@ body:
       label: Service
       description: Which service is affected?
       options:
-        - Backend (Laravel API)
+        - Web Worker / API
         - Frontend (React)
-        - Scraper - App Store
-        - Scraper - Google Play
-        - Docker / Infrastructure
+        - Cloudflare Jobs / App Store
+        - Cloudflare Jobs / Google Play
+        - Cloudflare infrastructure
         - Other
     validations:
       required: true
@@ -75,7 +75,6 @@ body:
         Please provide your environment details.
       placeholder: |
         - OS: macOS 15.4
-        - Docker: 27.x
-        - PHP: 8.4
-        - Node: 22.x
         - Browser: Chrome 130
+        - Region: Europe
+        - Node: 22.x (local development only)

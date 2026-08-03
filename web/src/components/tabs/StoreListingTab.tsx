@@ -21,7 +21,6 @@ export default function StoreListingTab({
   listings,
   versions,
   platform,
-  externalId,
   selectedLocale,
   selectedCountry = 'us',
   selectedCountryName,

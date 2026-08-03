@@ -10,6 +10,7 @@ OpenApps serves a React SPA, the compatible `/api/v1` API, documentation and a 2
 - `workers/web/` — Hono API, cookie/Bearer authentication, OAuth 2.1 and stateless Streamable HTTP MCP.
 - `workers/jobs/` — Cron, Queue consumers, R2 DLQ archiving and the `StoreRateLimiter` Durable Object.
 - `packages/core/` — shared domain, crypto, D1 helpers, messages and structured logs.
+- `packages/db/` — Drizzle schema for all 17 D1 tables and the typed D1 client.
 - `packages/scrapers/` — native Fetch Apple and Google Play collectors.
 - `migrations/` — SQLite/D1 schema and reference seeds.
 - `docs-site/` — Astro/Starlight documentation published below `/docs`.
@@ -22,12 +23,12 @@ There is no PHP, Python, MySQL, Redis or container runtime.
 ```bash
 npm ci
 npm run cf:migrate:local
-npm run typecheck
-npm test
+npm run check
 npm run build
 ```
 
 Use `npm run dev -w @openapps/web-worker` for local Worker development. Cloudflare bindings and Cron schedules live in the two `wrangler.jsonc` files.
+`npm run check` verifies committed Wrangler-generated binding types, lint, TypeScript, Node Vitest and workerd integration tests. The exact 437 pre-rewrite scenarios are retained in `tests/legacy-scenarios.json` as the behavioral migration catalog.
 
 ## MCP
 

@@ -116,7 +116,9 @@ app.post('/auth/logout', async (c) => {
 
 app.get('/account/profile', (c) => c.json(userResource(c.var.auth.user)))
 app.patch('/account/profile', async (c) => {
-  const parsed = z.object({ name: z.string().trim().min(1).max(255), email: z.email().max(255) }).safeParse(await c.req.json().catch(() => ({})))
+  const parsed = z.object({ name: z.string().trim().min(1).max(255).optional(), email: z.email().max(255).optional() })
+    .refine((value) => value.name !== undefined || value.email !== undefined, { message: 'At least one field is required.' })
+    .safeParse(await c.req.json().catch(() => ({})))
   if (!parsed.success) return c.json(validation(z.flattenError(parsed.error).fieldErrors as Record<string, string[]>), 422)
   const name = parsed.data.name ?? c.var.auth.user.name
   const email = (parsed.data.email ?? c.var.auth.user.email).toLowerCase()
@@ -186,12 +188,15 @@ app.patch('/folders/:folder', async (c) => {
   const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : current.name
   const color = body.color && colors.has(body.color) ? body.color : current.color
   const position = Number.isInteger(body.position) ? body.position : current.position
-  await c.var.db.prepare('UPDATE folders SET name=?,color=?,position=?,updated_at=? WHERE id=? AND user_id=?')
-    .bind(name, color, position, nowIso(), Number(c.req.param('folder')), c.var.auth.user.id).run()
+  try {
+    await c.var.db.prepare('UPDATE folders SET name=?,color=?,position=?,updated_at=? WHERE id=? AND user_id=?')
+      .bind(name, color, position, nowIso(), Number(c.req.param('folder')), c.var.auth.user.id).run()
+  } catch { return c.json(validation({ name: ['The name has already been taken.'] }), 422) }
   return c.json({ ...current, name, color, position, updated_at: nowIso() })
 })
 app.delete('/folders/:folder', async (c) => {
-  await c.var.db.prepare('DELETE FROM folders WHERE id=? AND user_id=?').bind(Number(c.req.param('folder')), c.var.auth.user.id).run()
+  const result = await c.var.db.prepare('DELETE FROM folders WHERE id=? AND user_id=?').bind(Number(c.req.param('folder')), c.var.auth.user.id).run()
+  if ((result.meta.changes ?? 0) === 0) return c.json({ message: 'Not found.' }, 404)
   return c.body(null, 204)
 })
 
@@ -211,7 +216,13 @@ app.get('/apps', async (c) => {
   const where = ['ua.user_id = ?']
   const bindings: unknown[] = [c.var.auth.user.id]
   if (c.req.query('platform')) { where.push('a.platform = ?'); bindings.push(c.req.query('platform')) }
-  if (c.req.query('folder_id')) { where.push('ua.folder_id = ?'); bindings.push(Number(c.req.query('folder_id'))) }
+  const folderId = c.req.query('folder_id')
+  if (folderId === 'unassigned') where.push('ua.folder_id IS NULL')
+  else if (folderId) {
+    const folder = await first(c.var.db, 'SELECT id FROM folders WHERE id=? AND user_id=?', Number(folderId), c.var.auth.user.id)
+    if (!folder) return c.json(validation({ folder_id: ['The selected folder is invalid.'] }), 422)
+    where.push('ua.folder_id = ?'); bindings.push(Number(folderId))
+  }
   if (c.req.query('search')) { where.push('(a.display_name LIKE ? OR a.external_id LIKE ?)'); bindings.push(`%${c.req.query('search')}%`, `%${c.req.query('search')}%`) }
   const rows = await all<Record<string, unknown>>(c.var.db, `${appSelect} JOIN user_apps ua ON ua.app_id=a.id WHERE ${where.join(' AND ')} ORDER BY ua.created_at DESC`, c.var.auth.user.id, ...bindings)
   return c.json(rows.map((r) => appResource(r as never)))
@@ -219,8 +230,10 @@ app.get('/apps', async (c) => {
 app.post('/apps', async (c) => {
   const parsed = z.object({ platform: platformSchema, external_id: z.string().min(1), country: z.string().length(2).optional() }).safeParse(await c.req.json().catch(() => ({})))
   if (!parsed.success) return c.json(validation(z.flattenError(parsed.error).fieldErrors as Record<string, string[]>), 422)
-  const store = await scraperFor(parsed.data.platform).lookup(parsed.data.external_id, parsed.data.country)
-  await persistStoreApp(c.var.db, store, { ...(parsed.data.country ? { country: parsed.data.country } : {}), discoveredFrom: 'manual' })
+  const target = await resolveApp(c.var.db, parsed.data.platform, parsed.data.external_id)
+  if (!target) return c.json(validation({ external_id: ['The app must be discovered before it can be registered.'] }), 422)
+  await c.var.db.prepare('INSERT OR IGNORE INTO user_apps (user_id,app_id,created_at) VALUES (?,?,?)')
+    .bind(c.var.auth.user.id, target.id, nowIso()).run()
   const resource = await findAppResource(c.var.db, c.var.auth, parsed.data.platform, parsed.data.external_id)
   return c.json(resource, 201)
 })
@@ -247,12 +260,16 @@ app.post('/apps/:platform/:externalId/track', async (c) => {
 })
 app.delete('/apps/:platform/:externalId/track', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  if (target) await c.var.db.prepare('DELETE FROM user_apps WHERE user_id=? AND app_id=?').bind(c.var.auth.user.id, target.id).run()
+  if (target) await c.var.db.batch([
+    c.var.db.prepare('DELETE FROM app_competitors WHERE user_id=? AND app_id=?').bind(c.var.auth.user.id, target.id),
+    c.var.db.prepare('DELETE FROM user_apps WHERE user_id=? AND app_id=?').bind(c.var.auth.user.id, target.id),
+  ])
   return c.body(null, 204)
 })
 app.patch('/apps/:platform/:externalId/folder', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
   if (!target) return c.json({ message: 'Not found.' }, 404)
+  if (!(await first(c.var.db, 'SELECT 1 AS found FROM user_apps WHERE user_id=? AND app_id=?', c.var.auth.user.id, target.id))) return c.json({ message: 'Not found.' }, 404)
   const body = await c.req.json<{ folder_id?: number | null }>().catch(() => ({})) as { folder_id?: number | null }
   if (body.folder_id && !(await first(c.var.db, 'SELECT id FROM folders WHERE id=? AND user_id=?', body.folder_id, c.var.auth.user.id))) return c.json(validation({ folder_id: ['The selected folder is invalid.'] }), 422)
   await c.var.db.prepare('UPDATE user_apps SET folder_id=? WHERE user_id=? AND app_id=?').bind(body.folder_id ?? null, c.var.auth.user.id, target.id).run()
@@ -262,6 +279,8 @@ app.post('/apps/:platform/:externalId/sync', async (c) => {
   const platform = platformSchema.parse(c.req.param('platform'))
   const target = await resolveApp(c.var.db, platform, c.req.param('externalId'))
   if (!target) return c.json({ message: 'Not found.' }, 404)
+  const active = await first(c.var.db, "SELECT job_id FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", target.id)
+  if (active) return c.json({ message: 'Sync already in progress.', job_id: (active as { job_id?: string }).job_id ?? null }, 202)
   return c.json({ message: 'Sync queued.', job_id: await enqueueSync(c.env, platform, c.req.param('externalId'), target.id) }, 202)
 })
 app.get('/apps/:platform/:externalId/sync-status', async (c) => {
@@ -273,26 +292,40 @@ app.get('/apps/:platform/:externalId/sync-status', async (c) => {
 
 app.get('/apps/:platform/:externalId/competitors', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  if (!target) return c.json([])
+  if (!target || !(await first(c.var.db, 'SELECT 1 AS found FROM user_apps WHERE user_id=? AND app_id=?', c.var.auth.user.id, target.id))) return c.json({ message: 'Not found.' }, 404)
   return c.json(await all(c.var.db, `SELECT ac.id, ac.relationship, ac.created_at, ca.id AS app_id, ca.display_name AS name,
     ca.platform, ca.external_id, ca.icon_url FROM app_competitors ac JOIN apps ca ON ca.id=ac.competitor_app_id
     WHERE ac.user_id=? AND ac.app_id=? ORDER BY ac.created_at DESC`, c.var.auth.user.id, target.id))
 })
 app.post('/apps/:platform/:externalId/competitors', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  const parsed = z.object({ competitor_platform: platformSchema, competitor_external_id: z.string(), relationship: z.string().optional() }).safeParse(await c.req.json().catch(() => ({})))
-  if (!target || !parsed.success) return c.json(validation({ competitor_external_id: ['Invalid competitor.'] }), 422)
-  let competitor = await resolveApp(c.var.db, parsed.data.competitor_platform, parsed.data.competitor_external_id)
-  if (!competitor) competitor = { id: await persistStoreApp(c.var.db, await scraperFor(parsed.data.competitor_platform).lookup(parsed.data.competitor_external_id), { discoveredFrom: 'competitor' }) }
+  if (!target || !(await first(c.var.db, 'SELECT 1 AS found FROM user_apps WHERE user_id=? AND app_id=?', c.var.auth.user.id, target.id))) return c.json({ message: 'Not found.' }, 404)
+  const parsed = z.object({
+    competitor_app_id: z.number().int().positive().optional(), competitor_platform: platformSchema.optional(),
+    competitor_external_id: z.string().min(1).optional(), relationship: z.enum(['direct', 'indirect', 'aspiration']).default('direct'),
+  }).refine((value) => value.competitor_app_id !== undefined || value.competitor_external_id !== undefined, { message: 'A competitor is required.' })
+    .safeParse(await c.req.json().catch(() => ({})))
+  if (!parsed.success) return c.json(validation(z.flattenError(parsed.error).fieldErrors as Record<string, string[]>), 422)
+  let competitor = parsed.data.competitor_app_id
+    ? await first<{ id: number }>(c.var.db, 'SELECT id FROM apps WHERE id=?', parsed.data.competitor_app_id)
+    : await resolveApp(c.var.db, parsed.data.competitor_platform ?? c.req.param('platform'), parsed.data.competitor_external_id!)
+  if (parsed.data.competitor_app_id && !competitor) return c.json(validation({ competitor_app_id: ['The selected competitor app is invalid.'] }), 422)
+  if (!competitor) {
+    const competitorPlatform = parsed.data.competitor_platform ?? platformSchema.parse(c.req.param('platform'))
+    competitor = { id: await persistStoreApp(c.var.db, await scraperFor(competitorPlatform).lookup(parsed.data.competitor_external_id!), { discoveredFrom: 'competitor' }) }
+  }
   if (target.id === competitor.id) return c.json(validation({ competitor_external_id: ['An app cannot compete with itself.'] }), 422)
   const now = nowIso()
-  await c.var.db.prepare(`INSERT INTO app_competitors (user_id,app_id,competitor_app_id,relationship,created_at,updated_at)
-    VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,app_id,competitor_app_id) DO UPDATE SET relationship=excluded.relationship,updated_at=excluded.updated_at`)
-    .bind(c.var.auth.user.id, target.id, competitor.id, parsed.data.relationship ?? 'direct', now, now).run()
-  return c.json({ message: 'Competitor added successfully.' }, 201)
+  const created = await c.var.db.prepare(`INSERT INTO app_competitors (user_id,app_id,competitor_app_id,relationship,created_at,updated_at)
+    VALUES (?,?,?,?,?,?) RETURNING id`).bind(c.var.auth.user.id, target.id, competitor.id, parsed.data.relationship, now, now).first<{ id: number }>()
+  const competitorApp = await first<Record<string, unknown>>(c.var.db, `${appSelect} WHERE a.id=?`, c.var.auth.user.id, competitor.id)
+  return c.json({ id: created!.id, relationship: parsed.data.relationship, app: competitorApp ? appResource(competitorApp as never) : null, created_at: now }, 201)
 })
 app.delete('/apps/:platform/:externalId/competitors/:competitor', async (c) => {
-  await c.var.db.prepare('DELETE FROM app_competitors WHERE id=? AND user_id=?').bind(Number(c.req.param('competitor')), c.var.auth.user.id).run()
+  const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
+  if (!target) return c.json({ message: 'Not found.' }, 404)
+  const result = await c.var.db.prepare('DELETE FROM app_competitors WHERE id=? AND user_id=? AND app_id=?').bind(Number(c.req.param('competitor')), c.var.auth.user.id, target.id).run()
+  if ((result.meta.changes ?? 0) === 0) return c.json({ message: 'Not found.' }, 404)
   return c.body(null, 204)
 })
 app.get('/competitors', async (c) => c.json(await all(c.var.db, `SELECT ac.id, ac.relationship, ac.created_at,
@@ -309,7 +342,7 @@ function words(text: string, n: number) {
 }
 app.get('/apps/:platform/:externalId/keywords', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  if (!target) return c.json(page([], 1, 25, 0))
+  if (!target) return c.json({ message: 'Not found.' }, 404)
   const listing = await first<{ title: string; subtitle: string | null; description: string }>(c.var.db, 'SELECT title,subtitle,description FROM app_store_listings WHERE app_id=? ORDER BY id DESC LIMIT 1', target.id)
   const density = words(`${listing?.title ?? ''} ${listing?.subtitle ?? ''} ${listing?.description ?? ''}`, int(c.req.query('ngram'), 1, 3))
   const p = int(c.req.query('page'), 1, 10000), per = int(c.req.query('per_page'), 25, 100)
@@ -317,30 +350,38 @@ app.get('/apps/:platform/:externalId/keywords', async (c) => {
 })
 app.get('/apps/:platform/:externalId/keywords/compare', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  if (!target) return c.json({ apps: [], keywords: {} })
+  if (!target) return c.json({ message: 'Not found.' }, 404)
   const listings = await all<{ id: number; title: string; subtitle: string | null; description: string }>(c.var.db, 'SELECT id,title,subtitle,description FROM app_store_listings WHERE app_id=? ORDER BY id DESC LIMIT 5', target.id)
   return c.json({ apps: listings.map((l) => ({ id: l.id })), keywords: Object.fromEntries(listings.map((l) => [String(l.id), words(`${l.title} ${l.subtitle ?? ''} ${l.description}`, int(c.req.query('ngram'), 1, 3)).slice(0, 50)])) })
 })
 app.get('/apps/:platform/:externalId/ratings/summary', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
+  if (!target) return c.json({ message: 'Not found.' }, 404)
   const row = target ? await first<Record<string, unknown>>(c.var.db, `SELECT rating, rating_count, rating_breakdown, date FROM app_metrics WHERE app_id=? ORDER BY date DESC LIMIT 1`, target.id) : null
   return c.json(row ? { ...row, rating_breakdown: jsonValue(row.rating_breakdown as string | null, {}), trend: null } : { rating: 0, rating_count: 0, rating_breakdown: {}, trend: null })
 })
 app.get('/apps/:platform/:externalId/ratings/history', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  return c.json(target ? await all(c.var.db, 'SELECT date,rating,rating_count,rating_breakdown,country_code FROM app_metrics WHERE app_id=? ORDER BY date', target.id) : [])
+  if (!target) return c.json({ message: 'Not found.' }, 404)
+  const daysRaw = c.req.query('days')
+  if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) < 1 || Number(daysRaw) > 90)) return c.json(validation({ days: ['The days field must be between 1 and 90.'] }), 422)
+  return c.json(await all(c.var.db, 'SELECT date,rating,rating_count,rating_breakdown,country_code FROM app_metrics WHERE app_id=? ORDER BY date', target.id))
 })
 app.get('/apps/:platform/:externalId/ratings/country-breakdown', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  return c.json(target ? await all(c.var.db, `SELECT m.country_code, c.name AS country_name, m.rating, m.rating_count, m.date
-    FROM app_metrics m JOIN countries c ON c.code=m.country_code WHERE m.app_id=? GROUP BY m.country_code HAVING m.date=MAX(m.date)`, target.id) : [])
+  if (!target) return c.json({ message: 'Not found.' }, 404)
+  return c.json(await all(c.var.db, `SELECT m.country_code, c.name AS country_name, m.rating, m.rating_count, m.date
+    FROM app_metrics m JOIN countries c ON c.code=m.country_code WHERE m.app_id=? GROUP BY m.country_code HAVING m.date=MAX(m.date)`, target.id))
 })
 app.get('/apps/:platform/:externalId/rankings', async (c) => {
   const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
-  return c.json(target ? await all(c.var.db, `SELECT tc.snapshot_date AS date, tce.rank, tc.collection, tc.country_code,
+  if (!target) return c.json({ message: 'Not found.' }, 404)
+  const date = c.req.query('date')
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json(validation({ date: ['The date field must match the format Y-m-d.'] }), 422)
+  return c.json(await all(c.var.db, `SELECT tc.snapshot_date AS date, tce.rank, tc.collection, tc.country_code,
     sc.id AS category_id, sc.name AS category_name FROM trending_chart_entries tce
     JOIN trending_charts tc ON tc.id=tce.trending_chart_id JOIN store_categories sc ON sc.id=tc.category_id
-    WHERE tce.app_id=? ORDER BY tc.snapshot_date DESC`, target.id) : [])
+    WHERE tce.app_id=? ORDER BY tc.snapshot_date DESC`, target.id))
 })
 
 app.get('/dashboard', async (c) => {

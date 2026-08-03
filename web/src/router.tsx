@@ -1,25 +1,28 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useAnalyticsPageViews } from '@/hooks/useAnalyticsPageViews'
 import AppLayout from '@/layouts/AppLayout'
-import Landing from '@/pages/Landing'
-import Login from '@/pages/auth/Login'
-import Register from '@/pages/auth/Register'
-import AppsIndex from '@/pages/apps/Index'
-import AppsShow from '@/pages/apps/Show'
-import CompetitorsIndex from '@/pages/competitors/Index'
-import Settings from '@/pages/Settings'
-import ApiTokens from '@/pages/settings/ApiTokens'
-import McpSetup from '@/pages/settings/Mcp'
-import PublishersIndex from '@/pages/publishers/Index'
-import PublishersShow from '@/pages/publishers/Show'
-import AppChanges from '@/pages/changes/AppChanges'
-import CompetitorChanges from '@/pages/changes/CompetitorChanges'
-import DiscoveryApps from '@/pages/discovery/Apps'
-import DiscoveryPublishers from '@/pages/discovery/Publishers'
-import Trending from '@/pages/discovery/Trending'
-import ExplorerScreenshots from '@/pages/explorer/Screenshots'
-import ExplorerIcons from '@/pages/explorer/Icons'
+const Landing = lazy(() => import('@/pages/Landing'))
+const Login = lazy(() => import('@/pages/auth/Login'))
+const Register = lazy(() => import('@/pages/auth/Register'))
+const AppsIndex = lazy(() => import('@/pages/apps/Index'))
+const AppsShow = lazy(() => import('@/pages/apps/Show'))
+const CompetitorsIndex = lazy(() => import('@/pages/competitors/Index'))
+const Settings = lazy(() => import('@/pages/Settings'))
+const ApiTokens = lazy(() => import('@/pages/settings/ApiTokens'))
+const McpSetup = lazy(() => import('@/pages/settings/Mcp'))
+const PublishersIndex = lazy(() => import('@/pages/publishers/Index'))
+const PublishersShow = lazy(() => import('@/pages/publishers/Show'))
+const AppChanges = lazy(() => import('@/pages/changes/AppChanges'))
+const CompetitorChanges = lazy(() => import('@/pages/changes/CompetitorChanges'))
+const DiscoveryApps = lazy(() => import('@/pages/discovery/Apps'))
+const DiscoveryPublishers = lazy(() => import('@/pages/discovery/Publishers'))
+const Trending = lazy(() => import('@/pages/discovery/Trending'))
+const ExplorerScreenshots = lazy(() => import('@/pages/explorer/Screenshots'))
+const ExplorerIcons = lazy(() => import('@/pages/explorer/Icons'))
+
+const loading = <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
 
 function AuthGuard() {
   const { token, isLoading } = useAuthStore()
@@ -60,7 +63,7 @@ export default function Router() {
   return (
     <BrowserRouter>
       <AnalyticsTracker />
-      <Routes>
+      <Suspense fallback={loading}><Routes>
         <Route path="/" element={<Landing />} />
         <Route element={<GuestGuard />}>
           <Route path="/login" element={<Login />} />
@@ -97,7 +100,7 @@ export default function Router() {
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </Routes></Suspense>
     </BrowserRouter>
   )
 }

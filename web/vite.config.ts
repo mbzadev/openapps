@@ -6,7 +6,7 @@ import { readFileSync, existsSync } from 'fs'
 
 function readRepoVersion(): string {
   // Two candidate locations:
-  //   - ../VERSION : repo layout on the host (npm run build outside Docker)
+  //   - ../VERSION : repository layout during a local or Cloudflare build
   //   - /VERSION   : compose mount for the dev container (web/'s ../ is /, not the repo root)
   const candidates = [path.resolve(import.meta.dirname, '..', 'VERSION'), '/VERSION']
   for (const versionFile of candidates) {

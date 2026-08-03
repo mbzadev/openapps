@@ -24,7 +24,7 @@
 !/migrations/
 !/migrations/*.sql
 
-# Server (Laravel)
+# Removed legacy server artifacts
 /server/appgenome
 /server/.phpunit.cache
 /server/bootstrap/ssr

@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a new feature for AppStoreCat
+description: Suggest a new feature for OpenApps by MBZA
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
@@ -14,10 +14,10 @@ body:
       label: Service
       description: Which service would this feature affect?
       options:
-        - Backend (Laravel API)
+        - Web Worker / API
         - Frontend (React)
-        - Scraper - App Store
-        - Scraper - Google Play
+        - Cloudflare Jobs / App Store
+        - Cloudflare Jobs / Google Play
         - New Service / Integration
         - Other
     validations:

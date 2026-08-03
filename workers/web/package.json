@@ -7,6 +7,7 @@
     "build": "wrangler deploy --env=\"\" --dry-run --outdir dist",
     "typecheck": "tsc -p tsconfig.json",
     "cf:types": "wrangler types src/worker-configuration.d.ts",
+    "cf:types:check": "wrangler types src/worker-configuration.d.ts --check",
     "deploy:dry": "wrangler deploy --env=\"\" --dry-run",
     "deploy": "wrangler deploy --env=\"\""
   },

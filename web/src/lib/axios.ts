@@ -11,8 +11,21 @@ const axios = Axios.create({
   },
 })
 
+// D1 Sessions bookmarks provide sequential consistency while still allowing
+// read replicas. They stay in memory and are neither credentials nor persisted
+// browser storage.
+let d1Bookmark: string | undefined
+axios.interceptors.request.use((config) => {
+  if (d1Bookmark) config.headers.set('x-d1-bookmark', d1Bookmark)
+  return config
+})
+
 axios.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const nextBookmark = response.headers['x-d1-bookmark'] as string | undefined
+    if (nextBookmark) d1Bookmark = nextBookmark
+    return response
+  },
   (error) => {
     const isAuthRoute = error.config?.url?.startsWith('/auth/')
     if (error.response?.status === 401 && !isAuthRoute) {

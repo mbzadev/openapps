@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQueryClient } from '@tanstack/react-query'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
-  getListAppsQueryKey,
   getListCompetitorsQueryKey,
   getShowAppQueryKey,
   useListCompetitors,

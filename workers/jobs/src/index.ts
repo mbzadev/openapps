@@ -1,6 +1,7 @@
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import puppeteer from '@cloudflare/puppeteer'
 import { all, first, jobMessageSchema, log, nowIso, type JobMessage, type Platform } from '@openapps/core'
+import { createDatabase, syncTasks } from '@openapps/db'
 import { googlePlayAppUrl, parseGooglePlayHtml, persistStoreApp, scraperFor, type StoreApp } from '@openapps/scrapers'
 import { StoreRateLimiter } from './rate-limiter.js'
 import type { Env } from './env.js'
@@ -22,6 +23,13 @@ async function setSync(env: Env, appId: number, status: string, step: string | n
       completed_at=CASE WHEN excluded.status IN ('completed','failed') THEN excluded.updated_at ELSE NULL END,
       updated_at=excluded.updated_at`)
     .bind(appId, status, step, status === 'completed' ? 1 : 0, error, now, now).run()
+}
+
+async function failSync(env: Env, appId: number, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  await env.DB.prepare(`UPDATE sync_statuses SET status='failed',current_step=NULL,
+    error_message=?,completed_at=?,updated_at=? WHERE app_id=?`)
+    .bind(message, nowIso(), nowIso(), appId).run()
 }
 
 async function limit(env: Env, platform: Platform, kind: string) {
@@ -94,22 +102,74 @@ async function archiveFailure(env: Env, body: unknown, error: unknown) {
   await env.ARTIFACTS.put(key, JSON.stringify({ failed_at: nowIso(), body, error: error instanceof Error ? error.stack ?? error.message : String(error) }), { httpMetadata: { contentType: 'application/json' } })
 }
 
-async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
+async function claimTask(env: Env, message: JobMessage): Promise<boolean> {
+  const now = nowIso()
+  const inserted = await createDatabase(env.DB).insert(syncTasks).values({
+    taskId: message.taskId, kind: message.kind, payload: message,
+    status: 'running', attemptCount: 1, createdAt: now, updatedAt: now,
+  }).onConflictDoNothing({ target: syncTasks.taskId }).run()
+  if ((inserted.meta.changes ?? 0) > 0) return true
+
+  // Queue delivery is at-least-once. A completed or concurrently-running task
+  // is acknowledged without repeating its side effects. A failed delivery can
+  // be reclaimed by the retry carrying the same stable task id.
+  const reclaimed = await env.DB.prepare(`UPDATE sync_tasks SET status='running',
+      attempt_count=attempt_count+1, failure_reason=NULL, error_message=NULL,
+      available_at=NULL, updated_at=?
+    WHERE task_id=? AND status NOT IN ('running','completed')`)
+    .bind(now, message.taskId).run()
+  return (reclaimed.meta.changes ?? 0) > 0
+}
+
+async function completeTask(env: Env, taskId: string) {
+  await env.DB.prepare("UPDATE sync_tasks SET status='completed',available_at=NULL,updated_at=? WHERE task_id=?")
+    .bind(nowIso(), taskId).run()
+}
+
+async function retryTask(env: Env, taskId: string, error: unknown, delaySeconds: number) {
+  const message = error instanceof Error ? error.message : String(error)
+  await env.DB.prepare(`UPDATE sync_tasks SET status='pending',failure_reason='queue_retry',
+      error_message=?,available_at=datetime('now', ?),updated_at=? WHERE task_id=?`)
+    .bind(message, `+${delaySeconds} seconds`, nowIso(), taskId).run()
+}
+
+export async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
+  if (batch.queue.includes('dead-letter')) {
+    for (const item of batch.messages) {
+      await archiveFailure(env, item.body, `Dead-lettered after ${item.attempts} attempts`)
+      const parsed = jobMessageSchema.safeParse(item.body)
+      if (parsed.success) {
+        await env.DB.prepare("UPDATE sync_tasks SET status='failed',failure_reason='dead_letter',error_message=?,updated_at=? WHERE task_id=?")
+          .bind(`Dead-lettered after ${item.attempts} attempts`, nowIso(), parsed.data.taskId).run()
+      }
+      item.ack()
+    }
+    return
+  }
+
   for (const item of batch.messages) {
     const parsed = jobMessageSchema.safeParse(item.body)
     if (!parsed.success) { await archiveFailure(env, item.body, parsed.error); item.ack(); continue }
     try {
+      if (!(await claimTask(env, parsed.data))) {
+        log('info', 'queue.duplicate', task(parsed.data, 'acknowledged'))
+        item.ack()
+        continue
+      }
       if (parsed.data.kind === 'app.sync') await syncApp(env, parsed.data)
       else if (parsed.data.kind === 'chart.sync') await syncChart(env, parsed.data)
       else if (parsed.data.kind === 'sync.reconcile') await reconcile(env, parsed.data)
       else await archiveFailure(env, parsed.data.original, parsed.data.error)
+      await completeTask(env, parsed.data.taskId)
       log('info', 'queue.completed', task(parsed.data, 'completed'))
       item.ack()
     } catch (error) {
       log('error', 'queue.failed', task(parsed.data, 'failed', error instanceof Error ? error.message : String(error)))
-      if (parsed.data.kind === 'app.sync') await setSync(env, parsed.data.appId, 'failed', null, error instanceof Error ? error.message : String(error))
+      if (parsed.data.kind === 'app.sync') await failSync(env, parsed.data.appId, error)
       const retryMs = error instanceof Error && error.message.startsWith('RATE_LIMIT:') ? Number(error.message.slice(11)) : 2 ** Math.min(item.attempts, 8) * 1000
-      item.retry({ delaySeconds: Math.max(1, Math.ceil(retryMs / 1000)) })
+      const delaySeconds = Math.max(1, Math.ceil(retryMs / 1000))
+      await retryTask(env, parsed.data.taskId, error, delaySeconds)
+      item.retry({ delaySeconds })
     }
   }
 }
@@ -117,14 +177,16 @@ async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
 async function dispatchTracked(env: Env) {
   const apps = await all<{ id: number; platform: Platform }>(env.DB, 'SELECT DISTINCT a.id,a.platform FROM apps a JOIN user_apps ua ON ua.app_id=a.id WHERE a.is_available=1')
   const ios: JobMessage[] = [], android: JobMessage[] = []
-  for (const app of apps) (app.platform === 'ios' ? ios : android).push({ v: 1, kind: 'app.sync', platform: app.platform, appId: app.id, source: 'scheduled', taskId: crypto.randomUUID() })
+  const slot = Math.floor(Date.now() / (20 * 60_000))
+  for (const app of apps) (app.platform === 'ios' ? ios : android).push({ v: 1, kind: 'app.sync', platform: app.platform, appId: app.id, source: 'scheduled', taskId: `app:${app.id}:${slot}` })
   if (ios.length) await env.SYNC_TRACKED_IOS.sendBatch(ios.map((body) => ({ body, contentType: 'json' as const })))
   if (android.length) await env.SYNC_TRACKED_ANDROID.sendBatch(android.map((body) => ({ body, contentType: 'json' as const })))
 }
 
 async function dispatchReconcile(env: Env) {
   const stale = await all<{ id: number }>(env.DB, `SELECT id FROM sync_statuses WHERE status IN ('pending','running','failed') AND updated_at < datetime('now','-15 minutes') LIMIT 100`)
-  if (stale.length) await env.RECONCILE.sendBatch(stale.map(({ id }) => ({ body: { v: 1, kind: 'sync.reconcile', syncStatusId: id, taskId: crypto.randomUUID() }, contentType: 'json' as const })))
+  const slot = Math.floor(Date.now() / (15 * 60_000))
+  if (stale.length) await env.RECONCILE.sendBatch(stale.map(({ id }) => ({ body: { v: 1, kind: 'sync.reconcile', syncStatusId: id, taskId: `reconcile:${id}:${slot}` }, contentType: 'json' as const })))
 }
 
 async function dispatchCharts(env: Env) {
@@ -133,8 +195,8 @@ async function dispatchCharts(env: Env) {
   const collections = ['top_free', 'top_paid', 'top_grossing'] as const
   const ios: JobMessage[] = [], android: JobMessage[] = []
   for (const country of countries) for (const collection of collections) {
-    if (country.is_active_ios) ios.push({ v: 1, kind: 'chart.sync', platform: 'ios', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: crypto.randomUUID() })
-    if (country.is_active_android) android.push({ v: 1, kind: 'chart.sync', platform: 'android', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: crypto.randomUUID() })
+    if (country.is_active_ios) ios.push({ v: 1, kind: 'chart.sync', platform: 'ios', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: `chart:ios:${country.code}:${collection}:${date}` })
+    if (country.is_active_android) android.push({ v: 1, kind: 'chart.sync', platform: 'android', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: `chart:android:${country.code}:${collection}:${date}` })
   }
   for (let i = 0; i < ios.length; i += 100) await env.CHARTS_IOS.sendBatch(ios.slice(i, i + 100).map((body) => ({ body, contentType: 'json' as const })))
   for (let i = 0; i < android.length; i += 100) await env.CHARTS_ANDROID.sendBatch(android.slice(i, i + 100).map((body) => ({ body, contentType: 'json' as const })))
@@ -145,13 +207,15 @@ async function cleanup(env: Env) {
     env.DB.prepare("DELETE FROM sync_tasks WHERE updated_at < datetime('now','-30 days')"),
     env.DB.prepare("DELETE FROM personal_access_tokens WHERE expires_at IS NOT NULL AND expires_at < datetime('now')"),
   ])
-  let cursor: string | undefined
-  do {
-    const listing = await env.ARTIFACTS.list({ prefix: 'temporary/', ...(cursor ? { cursor } : {}), limit: 1000 })
-    const old = listing.objects.filter((object) => object.uploaded.getTime() < Date.now() - 30 * 86_400_000)
-    if (old.length) await env.ARTIFACTS.delete(old.map((object) => object.key))
-    cursor = listing.truncated ? listing.cursor : undefined
-  } while (cursor)
+  for (const prefix of ['temporary/', 'dlq/']) {
+    let cursor: string | undefined
+    do {
+      const listing = await env.ARTIFACTS.list({ prefix, ...(cursor ? { cursor } : {}), limit: 1000 })
+      const old = listing.objects.filter((object) => object.uploaded.getTime() < Date.now() - 30 * 86_400_000)
+      if (old.length) await env.ARTIFACTS.delete(old.map((object) => object.key))
+      cursor = listing.truncated ? listing.cursor : undefined
+    } while (cursor)
+  }
 }
 
 export default class JobsWorker extends WorkerEntrypoint<Env> {

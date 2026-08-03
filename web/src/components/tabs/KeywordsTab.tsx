@@ -17,7 +17,7 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Search, ChevronsUpDown, ArrowUpDown, ArrowUp, ArrowDown, X, Plus } from 'lucide-react'
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, Plus } from 'lucide-react'
 import {
   appKeywords,
   getAppKeywordsQueryKey,
@@ -58,26 +58,6 @@ type SortableColumn = 'keyword' | 'count' | 'density'
 const PER_PAGE = 100
 
 // --- Locale helpers ---
-
-function getFlagUrl(countryCode: string): string {
-  return `https://flagcdn.com/w40/${countryCode}.png`
-}
-
-function getCountryName(countryCode: string): string {
-  try {
-    const display = new Intl.DisplayNames(['en'], { type: 'region' })
-    return display.of(countryCode.toUpperCase()) ?? countryCode
-  } catch {
-    return countryCode
-  }
-}
-
-function resolveLocale(primary: string | null | undefined, locales: string[]): string {
-  if (locales.length === 0) return 'us'
-  if (!primary) return locales.find((l) => l === 'us') ?? locales[0]
-  const code = primary.toLowerCase()
-  return locales.find((l) => l === code) ?? locales.find((l) => l === 'us') ?? locales[0]
-}
 
 function getDensityColor(density: number): string {
   if (density >= 3) return 'text-green-600 dark:text-green-400'
@@ -346,35 +326,6 @@ export default function KeywordsTab({ platform, externalId, versions, selectedLo
   )
 }
 
-// --- Locale selector with popover ---
-
-function LocaleSelector({ locales, selected, onChange }: { locales: string[]; selected: string; onChange: (v: string) => void }) {
-  return (
-    <Popover>
-      <PopoverTrigger render={<Button variant="outline" className="w-[200px] justify-between" />}>
-        <span className="flex items-center gap-2 truncate">
-          <img src={getFlagUrl(selected)} alt={selected} className="h-3.5 w-5 rounded-[2px] object-cover" />
-          {getCountryName(selected)}
-        </span>
-        <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-[200px] p-1">
-        <div className="max-h-[300px] overflow-y-auto">
-          {locales.map((locale) => (
-            <button
-              key={locale}
-              className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent ${locale === selected ? 'bg-accent' : ''}`}
-              onClick={() => onChange(locale)}
-            >
-              <img src={getFlagUrl(locale)} alt={locale} className="h-3.5 w-5 rounded-[2px] object-cover" />
-              {getCountryName(locale)}
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 // --- Keyword data table ---
 

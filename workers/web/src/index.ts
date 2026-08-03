@@ -14,10 +14,11 @@ app.use('/api/*', cors({
     if (!origin) return 'https://apps.mbza.dev'
     try {
       const hostname = new URL(origin).hostname
-      return hostname === 'apps.mbza.dev' || hostname.endsWith('.openapps-web.workers.dev') ? origin : ''
+      return hostname === 'apps.mbza.dev' || hostname === 'openapps-web-preview.mbza.workers.dev' ? origin : ''
     } catch { return '' }
   },
-  allowHeaders: ['Authorization', 'Content-Type', 'Accept'],
+  allowHeaders: ['Authorization', 'Content-Type', 'Accept', 'x-d1-bookmark'],
+  exposeHeaders: ['x-d1-bookmark'],
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
 }))

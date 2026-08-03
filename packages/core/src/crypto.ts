@@ -25,36 +25,29 @@ function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
 export async function hashPassword(password: string): Promise<string> {
   const salt = new Uint8Array(16)
   crypto.getRandomValues(salt)
-  const derived = await deriveCloudflarePbkdf2(encoder.encode(password), salt)
-  return `pbkdf2-sha256-cf-v1$600000$${bytesToBase64(salt)}$${bytesToBase64(derived)}`
+  const derived = await derivePbkdf2(encoder.encode(password), salt, 600_000)
+  return `pbkdf2-sha256-v1$600000$${bytesToBase64(salt)}$${bytesToBase64(derived)}`
 }
 
 export async function verifyPassword(password: string, encoded: string): Promise<boolean> {
   const [algorithm, iterationsRaw, saltRaw, expectedRaw] = encoded.split('$')
-  if (algorithm !== 'pbkdf2-sha256-cf-v1' || iterationsRaw !== '600000' || !saltRaw || !expectedRaw) return false
+  if (algorithm !== 'pbkdf2-sha256-v1' || iterationsRaw !== '600000' || !saltRaw || !expectedRaw) return false
   const iterations = Number(iterationsRaw)
   if (!Number.isSafeInteger(iterations) || iterations < 1) return false
   const salt = base64ToBytes(saltRaw)
   const expected = base64ToBytes(expectedRaw)
-  const actualBytes = await deriveCloudflarePbkdf2(encoder.encode(password), salt)
+  const actualBytes = await derivePbkdf2(encoder.encode(password), salt, iterations)
   if (actualBytes.byteLength !== expected.byteLength) return false
   let difference = 0
   for (let index = 0; index < actualBytes.byteLength; index++) difference |= actualBytes[index]! ^ expected[index]!
   return difference === 0
 }
 
-async function deriveCloudflarePbkdf2(initial: Uint8Array, salt: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
-  let material = new Uint8Array(initial)
-  for (let round = 0; round < 6; round++) {
-    const roundSalt = new Uint8Array(salt.byteLength + 1)
-    roundSalt.set(salt)
-    roundSalt[salt.byteLength] = round
-    const key = await crypto.subtle.importKey('raw', material, 'PBKDF2', false, ['deriveBits'])
-    material = new Uint8Array(await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', hash: 'SHA-256', salt: roundSalt, iterations: 100_000 },
-      key,
-      256,
-    ))
-  }
-  return material
+async function derivePbkdf2(password: Uint8Array<ArrayBuffer>, salt: Uint8Array<ArrayBuffer>, iterations: number): Promise<Uint8Array<ArrayBuffer>> {
+  const key = await crypto.subtle.importKey('raw', password, 'PBKDF2', false, ['deriveBits'])
+  return new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
+    key,
+    256,
+  ))
 }
