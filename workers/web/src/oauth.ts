@@ -8,7 +8,7 @@ type AuthorizationCode = { userId: number; clientId: string; redirectUri: string
 const oauth = new Hono<{ Bindings: Env; Variables: Variables }>()
 const scopes = ['openapps:read', 'openapps:write']
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')
 }
 

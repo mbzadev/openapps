@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hashPassword, jobMessageSchema, randomToken, sha256, verifyPassword } from '../packages/core/src/index.ts'
 import { AppleScraper, GooglePlayScraper } from '../packages/scrapers/src/index.ts'
+import { escapeHtml } from '../workers/web/src/oauth.ts'
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('security primitives', () => {
+  it('escapes untrusted OAuth client markup', () => {
+    expect(escapeHtml(`<img src=x onerror='alert(1)'>&\"`)).toBe('&lt;img src=x onerror=&#39;alert(1)&#39;&gt;&amp;&quot;')
+  })
   it('generates opaque random tokens', () => {
     const first = randomToken(), second = randomToken()
     expect(first).toHaveLength(64)
