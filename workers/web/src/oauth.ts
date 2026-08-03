@@ -8,6 +8,10 @@ type AuthorizationCode = { userId: number; clientId: string; redirectUri: string
 const oauth = new Hono<{ Bindings: Env; Variables: Variables }>()
 const scopes = ['openapps:read', 'openapps:write']
 
+function escapeHtml(value: string) {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')
+}
+
 function base64Url(bytes: Uint8Array) {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
@@ -59,8 +63,9 @@ oauth.get('/oauth/authorize', async (c) => {
   const client = clientRaw ? JSON.parse(clientRaw) as OAuthClient : null
   if (!client || query.response_type !== 'code' || !query.redirect_uri || !client.redirect_uris.includes(query.redirect_uri) || !query.code_challenge || query.code_challenge_method !== 'S256') return c.json({ error: 'invalid_request' }, 400)
   const requested = (query.scope ?? 'openapps:read').split(' ').filter((scope) => scopes.includes(scope))
-  const hidden = Object.entries(query).map(([key, value]) => `<input type="hidden" name="${key.replaceAll('"', '&quot;')}" value="${value.replaceAll('"', '&quot;')}">`).join('')
-  return c.html(`<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Autoriser ${client.client_name}</title><style>body{font:16px system-ui;max-width:560px;margin:10vh auto;padding:24px;background:#0b1220;color:#fff}main{background:#111c30;padding:32px;border-radius:16px}button{padding:12px 18px;border:0;border-radius:9px;background:#10b981;color:#052e24;font-weight:700}</style><main><h1>OpenApps by MBZA</h1><p><strong>${client.client_name}</strong> demande l’accès à votre compte.</p><ul>${requested.map((scope) => `<li>${scope}</li>`).join('')}</ul><form method="post">${hidden}<button name="decision" value="allow">Autoriser</button> <button name="decision" value="deny" style="background:#94a3b8">Refuser</button></form></main></html>`)
+  const hidden = Object.entries(query).map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}">`).join('')
+  const clientName = escapeHtml(client.client_name)
+  return c.html(`<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Autoriser ${clientName}</title><style>body{font:16px system-ui;max-width:560px;margin:10vh auto;padding:24px;background:#0b1220;color:#fff}main{background:#111c30;padding:32px;border-radius:16px}button{padding:12px 18px;border:0;border-radius:9px;background:#10b981;color:#052e24;font-weight:700}</style><main><h1>OpenApps by MBZA</h1><p><strong>${clientName}</strong> demande l’accès à votre compte.</p><ul>${requested.map((scope) => `<li>${escapeHtml(scope)}</li>`).join('')}</ul><form method="post">${hidden}<button name="decision" value="allow">Autoriser</button> <button name="decision" value="deny" style="background:#94a3b8">Refuser</button></form></main></html>`)
 })
 
 oauth.post('/oauth/authorize', async (c) => {
