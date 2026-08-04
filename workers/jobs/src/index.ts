@@ -243,7 +243,7 @@ async function claimTask(env: Env, message: JobMessage): Promise<boolean> {
       attempt_count=attempt_count+1, failure_reason=NULL, error_message=NULL,
       available_at=NULL, updated_at=?
     WHERE task_id=? AND status!='completed'
-      AND (status!='running' OR updated_at < datetime('now','-10 minutes'))`)
+      AND (status!='running' OR datetime(updated_at) < datetime('now','-10 minutes'))`)
     .bind(now, message.taskId).run()
   return (reclaimed.meta.changes ?? 0) > 0
 }

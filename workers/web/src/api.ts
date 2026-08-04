@@ -673,9 +673,16 @@ app.get('/charts', async (c) => {
     WHERE platform=? AND collection=? AND country_code=? AND category_id=? ORDER BY snapshot_date DESC LIMIT 1`, platform, collection, country, category.id)
   const today = utcDate(new Date()), isStale = !snapshot || snapshot.snapshot_date < today
   if (isStale) {
-    const message: JobMessage = { v: 1, kind: 'chart.sync', platform, countryCode: country, collection,
-      categoryExternalId: category.external_id, snapshotDate: today, taskId: `chart:${platform}:${collection}:${country}:${category.id}:${today}` }
-    await (platform === 'ios' ? c.env.CHARTS_IOS : c.env.CHARTS_ANDROID).send(message, { contentType: 'json' })
+    const taskId = `chart:${platform}:${collection}:${country}:${category.id}:${today}`
+    const queued = await first<{ status: string; updated_at: string }>(c.var.db,
+      'SELECT status,updated_at FROM sync_tasks WHERE task_id=?', taskId)
+    const runningIsStale = queued?.status === 'running'
+      && Date.parse(queued.updated_at) < Date.now() - 10 * 60_000
+    if (!queued || queued.status === 'failed' || runningIsStale) {
+      const message: JobMessage = { v: 1, kind: 'chart.sync', platform, countryCode: country, collection,
+        categoryExternalId: category.external_id, snapshotDate: today, taskId }
+      await (platform === 'ios' ? c.env.CHARTS_IOS : c.env.CHARTS_ANDROID).send(message, { contentType: 'json' })
+    }
   }
   if (!snapshot) return c.json({ data: [], meta: { message: 'No chart data available.', snapshot_date: null, updated_at: null, platform, collection, country_code: country } })
   const previous = await first<{ id: number }>(c.var.db, `SELECT id FROM trending_charts WHERE platform=? AND collection=?
