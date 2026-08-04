@@ -23,7 +23,6 @@ import {
   getAppKeywordsQueryKey,
   useCompareKeywords,
 } from '@/api/endpoints/apps/apps'
-import type { AppVersion } from '@/api/models/appVersion'
 import type { AppKeywords200 } from '@/api/models/appKeywords200'
 import type { KeywordDensityResource } from '@/api/models/keywordDensityResource'
 import type { KeywordCompareResourceAppsItem } from '@/api/models/keywordCompareResourceAppsItem'
@@ -38,7 +37,6 @@ import type { CompareKeywordsNgram } from '@/api/models/compareKeywordsNgram'
 interface KeywordsTabProps {
   platform: string
   externalId: string
-  versions: AppVersion[]
   selectedLocale: string
   selectedVersion: string
   allApps: { id: number; name: string; icon_url?: string | null }[]
@@ -67,9 +65,10 @@ function getDensityColor(density: number): string {
 
 // --- Main component ---
 
-export default function KeywordsTab({ platform, externalId, versions, selectedLocale, selectedVersion, allApps, controls }: KeywordsTabProps) {
-  const latestVersionId = versions[0]?.id
-  const selectedVersionId = selectedVersion === 'latest' ? (latestVersionId ?? null) : Number(selectedVersion)
+export default function KeywordsTab({ platform, externalId, selectedLocale, selectedVersion, allApps, controls }: KeywordsTabProps) {
+  // Let the API resolve the newest listing for the selected locale. A global
+  // app version may not have a listing in every storefront/locale.
+  const selectedVersionId = selectedVersion === 'latest' ? null : Number(selectedVersion)
   const [selectedNgram, setSelectedNgram] = useState<string>('1')
   const [compareAppIds, setCompareAppIds] = useState<number[]>([])
   const [compareVersionIds, setCompareVersionIds] = useState<Record<number, number>>({})

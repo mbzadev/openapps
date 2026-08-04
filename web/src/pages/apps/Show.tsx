@@ -544,7 +544,6 @@ export default function AppsShow() {
                   <KeywordsTab
                     platform={detail.platform}
                     externalId={detail.external_id}
-                    versions={versions}
                     selectedLocale={effectiveLocale}
                     selectedVersion={selectedVersion}
                     allApps={competitorAppsForCompare ?? []}
