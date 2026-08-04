@@ -115,7 +115,9 @@ export default function KeywordsTab({ platform, externalId, versions, selectedLo
     ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
   }), [selectedVersionId, selectedLocale, ngramNumber, urlSort, urlOrder, debouncedSearch])
 
-  const keywordsEnabled = !!selectedVersionId && !!selectedLocale
+  // Google Play does not always expose a public version number. Keyword
+  // analysis still works from the latest persisted listing in that case.
+  const keywordsEnabled = !!selectedLocale
 
   const {
     data: keywordsData,
@@ -199,15 +201,6 @@ export default function KeywordsTab({ platform, externalId, versions, selectedLo
       return next
     }, { replace: true })
   }, [setSearchParams])
-
-  if (versions.length === 0) {
-    return (
-      <div className="py-12 text-center">
-        <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-        <p className="text-muted-foreground">No keyword data available. Build DNA first.</p>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-4">

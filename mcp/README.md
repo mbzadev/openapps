@@ -1,4 +1,4 @@
-# OpenApps by MBZA MCP (stdio compatibility)
+# OpenApps MCP (stdio compatibility)
 
 The recommended MCP integration is the OAuth endpoint at `https://apps.mbza.dev/mcp`. This directory keeps a compatible local stdio bridge exposing the same 29 tools.
 

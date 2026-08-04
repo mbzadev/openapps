@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-We as members, contributors, and leaders pledge to make participation in the OpenApps by MBZA community a welcoming experience for everyone.
+We as members, contributors, and leaders pledge to make participation in the OpenApps community a welcoming experience for everyone.
 
 ## Our Standards
 

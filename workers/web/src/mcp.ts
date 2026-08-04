@@ -129,7 +129,7 @@ export async function handleMcp(request: Request, env: Env, executionCtx: AppExe
   if (!auth.abilities.includes('*') && !auth.abilities.includes('openapps:read')) return new Response(JSON.stringify({ error: 'insufficient_scope' }), { status: 403, headers: { 'Content-Type': 'application/json' } })
   const info: AuthInfo = { token: request.headers.get('Authorization')?.slice(7) ?? '', clientId: `user-${auth.user.id}`, scopes: auth.abilities, expiresAt: Math.floor(Date.now() / 1000) + 3600, resource: new URL(`${appUrl}/mcp`), extra: { userId: auth.user.id } }
   const handler = createMcpHandler(async ({ requestInfo, authInfo }) => {
-    const server = new McpServer({ name: 'openapps-by-mbza', version: '2.0.0' }, { instructions: 'OpenApps by MBZA provides App Store and Google Play intelligence through 29 account-isolated tools.' })
+    const server = new McpServer({ name: 'openapps', version: '2.0.0' }, { instructions: 'OpenApps provides App Store and Google Play intelligence through 29 account-isolated tools.' })
     if (requestInfo && authInfo) registerTools(server, requestInfo, authInfo, env, executionCtx)
     return server
   }, { legacy: 'stateless', responseMode: 'auto' })

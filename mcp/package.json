@@ -2,7 +2,7 @@
   "name": "@openapps/mcp",
   "version": "2.0.0",
   "private": true,
-  "description": "Compatible stdio MCP client for OpenApps by MBZA",
+  "description": "Compatible stdio MCP client for OpenApps",
   "type": "module",
   "bin": {
     "openapps-mcp": "dist/index.js"

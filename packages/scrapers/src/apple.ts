@@ -31,6 +31,16 @@ type ItunesResult = {
 
 type ItunesResponse = { resultCount: number; results: ItunesResult[] }
 
+type MarketingFeedResult = {
+  id?: string
+  name?: string
+  artistName?: string
+  artworkUrl100?: string
+  genres?: Array<{ genreId?: string; name?: string }>
+}
+
+type MarketingFeed = { feed?: { results?: MarketingFeedResult[] } }
+
 type ApplePage = Record<string, unknown>
 
 function record(value: unknown): ApplePage {
@@ -317,7 +327,30 @@ export class AppleScraper implements StoreScraper {
     limit = 100,
     categoryId?: string | null,
   ): Promise<ChartApp[]> {
-    const feed = collection === 'top_free' ? 'topfreeapplications' : collection === 'top_paid' ? 'toppaidapplications' : 'topgrossingapplications'
+    if (collection !== 'top_grossing' && !categoryId) {
+      const feed = collection === 'top_free' ? 'top-free' : 'top-paid'
+      const url = `https://rss.marketingtools.apple.com/api/v2/${encodeURIComponent(country.toLowerCase())}/apps/${feed}/${Math.min(limit, 100)}/apps.json`
+      const data = await fetchBoundedJson<MarketingFeed>(url)
+      return (data.feed?.results ?? []).map((entry, index) => ({
+        rank: index + 1,
+        external_id: entry.id ?? '',
+        name: entry.name ?? '',
+        publisher_name: entry.artistName ?? '',
+        icon_url: entry.artworkUrl100 ?? null,
+        category: entry.genres?.[0]?.name ?? null,
+        category_id: entry.genres?.[0]?.genreId ?? null,
+        price: 0,
+        currency: null,
+        is_free: collection === 'top_free',
+        rating: null,
+        version: null,
+      })).filter((entry) => entry.external_id)
+    }
+    const feed = collection === 'top_free'
+      ? 'topfreeapplications'
+      : collection === 'top_paid'
+        ? 'toppaidapplications'
+        : 'topgrossingapplications'
     const genre = categoryId ? `/genre=${encodeURIComponent(categoryId)}` : ''
     const url = `https://itunes.apple.com/${country}/rss/${feed}/limit=${Math.min(limit, 200)}${genre}/json`
     const data = await fetchBoundedJson<{ feed?: { entry?: Array<Record<string, unknown>> } }>(url)

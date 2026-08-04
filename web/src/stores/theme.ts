@@ -14,12 +14,13 @@ function getSystemTheme(): 'light' | 'dark' {
 function applyTheme(theme: Theme) {
   const resolved = theme === 'system' ? getSystemTheme() : theme
   document.documentElement.classList.toggle('dark', resolved === 'dark')
+  document.documentElement.style.colorScheme = resolved
 }
 
-const storedRaw = (localStorage.getItem('theme') as Theme) || 'system'
-// TODO: re-enable light/system once light palette is finalized
-const stored: Theme = 'dark'
-void storedRaw
+const storedRaw = localStorage.getItem('theme')
+const stored: Theme = storedRaw === 'light' || storedRaw === 'dark' || storedRaw === 'system'
+  ? storedRaw
+  : 'system'
 applyTheme(stored)
 
 export const useThemeStore = create<ThemeState>((set) => ({

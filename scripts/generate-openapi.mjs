@@ -93,7 +93,7 @@ for (const [method, path, tag, summary, operationId, requestBody, options] of [
 ]) operation(method, path, tag, summary, operationId, requestBody, options)
 
 const document = {
-  openapi: '3.1.0', info: { title: 'OpenApps by MBZA API', version: '2.0.0', description: 'Cloudflare-native App Store and Google Play intelligence API.' },
+  openapi: '3.1.0', info: { title: 'OpenApps API', version: '2.0.0', description: 'Cloudflare-native App Store and Google Play intelligence API.' },
   servers: [{ url: 'https://apps.mbza.dev/api/v1' }], paths,
   components: { securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' }, cookieAuth: { type: 'apiKey', in: 'cookie', name: '__Host-openapps-session' } }, schemas: { User: z.toJSONSchema(user), App: z.toJSONSchema(appResource) } },
 }

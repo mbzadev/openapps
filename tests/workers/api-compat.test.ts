@@ -19,7 +19,7 @@ describe('legacy /api/v1 behavior in workerd', () => {
       SYNC_TRACKED_IOS: queue, SYNC_TRACKED_ANDROID: queue,
       SYNC_ON_DEMAND_IOS: queue, SYNC_ON_DEMAND_ANDROID: queue,
       CHARTS_IOS: queue, CHARTS_ANDROID: queue, RECONCILE: queue,
-      APP_NAME: 'OpenApps by MBZA', APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'test', TRACKED_APP_REFRESH_HOURS: '24',
+      APP_NAME: 'OpenApps', APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'test', TRACKED_APP_REFRESH_HOURS: '24',
     }
     let token = ''
     const call = async (path: string, init: RequestInit = {}) => {
@@ -151,6 +151,10 @@ describe('legacy /api/v1 behavior in workerd', () => {
       (app_id,version_id,locale,title,subtitle,description,whats_new,screenshots,icon_url,price,fetched_at,checksum,created_at,updated_at)
       VALUES (?,?,'en-US','Photo Editor Studio','Photo Editor Pro','Photo editor photo editor studio with tools','New photo features',?,'https://cdn.example.test/icon.png',0,?,'fixture',?,?)`)
       .bind(parentId, versionId, JSON.stringify(screenshots), now, now, now).run()
+    await testEnv.DB.prepare(`INSERT INTO app_store_listings
+      (app_id,version_id,locale,title,subtitle,description,whats_new,screenshots,price,fetched_at,checksum,created_at,updated_at)
+      VALUES (?,NULL,'en-US','Rival Editor',NULL,'Photo filters and studio tools',NULL,'[]',0,?,'rival-fixture',?,?)`)
+      .bind(rivalId, now, now, now).run()
     await testEnv.DB.prepare("UPDATE apps SET icon_url='https://cdn.example.test/icon.png',last_synced_at=?,category_id=? WHERE id=?")
       .bind(now, rootCategory!.id, parentId).run()
     const keywords = await call('/apps/ios/com.example.parent/keywords?ngram=1')
@@ -159,7 +163,10 @@ describe('legacy /api/v1 behavior in workerd', () => {
     expect(keywordPayload.meta.total).toBeGreaterThan(1)
     const compare = await call(`/apps/ios/com.example.parent/keywords/compare?app_ids[]=${rivalId}`)
     expect(compare.status).toBe(200)
-    expect(await compare.json()).toMatchObject({ apps: [{ id: rivalId, name: 'com.example.rival', versions: [] }], keywords: {} })
+    expect(await compare.json()).toMatchObject({
+      apps: [{ id: rivalId, name: 'com.example.rival', versions: [] }],
+      keywords: { [rivalId]: { photo: { count: 1, density: expect.any(Number) } } },
+    })
 
     const countryBreakdown = await call('/apps/ios/com.example.parent/ratings/country-breakdown')
     expect(await countryBreakdown.json()).toMatchObject({ supported: true, data: [expect.objectContaining({ country_code: 'fr' }), expect.objectContaining({ country_code: 'us' })] })

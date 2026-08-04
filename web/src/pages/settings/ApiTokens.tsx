@@ -97,7 +97,7 @@ export default function ApiTokens() {
           <CardHeader>
             <CardTitle>Create Token</CardTitle>
             <CardDescription>
-              Generate an API token to use with the OpenApps by MBZA MCP server or API integrations.
+              Generate an API token to use with the OpenApps MCP server or API integrations.
             </CardDescription>
           </CardHeader>
           <CardContent>

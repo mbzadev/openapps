@@ -1,4 +1,4 @@
-# Contributing to OpenApps by MBZA
+# Contributing to OpenApps
 
 Fork [mbzadev/openapps](https://github.com/mbzadev/openapps), branch from `main`, and keep changes Cloudflare-native.
 

@@ -1,4 +1,4 @@
-# OpenApps by MBZA
+# OpenApps
 
 Cloudflare-native App Store and Google Play intelligence, deployed at [apps.mbza.dev](https://apps.mbza.dev).
 

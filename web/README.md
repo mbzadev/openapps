@@ -1,6 +1,6 @@
 # OpenApps web
 
-React SPA for OpenApps by MBZA. Production assets are built with Vite and served by `openapps-web` through Workers Static Assets.
+React SPA for OpenApps. Production assets are built with Vite and served by `openapps-web` through Workers Static Assets.
 
 ```bash
 npm run typecheck -w frontend

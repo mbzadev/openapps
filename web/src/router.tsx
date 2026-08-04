@@ -3,7 +3,6 @@ import { lazy, Suspense } from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useAnalyticsPageViews } from '@/hooks/useAnalyticsPageViews'
 import AppLayout from '@/layouts/AppLayout'
-const Landing = lazy(() => import('@/pages/Landing'))
 const Login = lazy(() => import('@/pages/auth/Login'))
 const Register = lazy(() => import('@/pages/auth/Register'))
 const AppsIndex = lazy(() => import('@/pages/apps/Index'))
@@ -21,6 +20,7 @@ const DiscoveryPublishers = lazy(() => import('@/pages/discovery/Publishers'))
 const Trending = lazy(() => import('@/pages/discovery/Trending'))
 const ExplorerScreenshots = lazy(() => import('@/pages/explorer/Screenshots'))
 const ExplorerIcons = lazy(() => import('@/pages/explorer/Icons'))
+const AsoIndex = lazy(() => import('@/pages/aso/Index'))
 
 const loading = <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
 
@@ -36,7 +36,7 @@ function AuthGuard() {
   }
 
   if (!token) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/login" replace />
   }
 
   return <Outlet />
@@ -64,7 +64,7 @@ export default function Router() {
     <BrowserRouter>
       <AnalyticsTracker />
       <Suspense fallback={loading}><Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route element={<GuestGuard />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -88,6 +88,12 @@ export default function Router() {
             <Route path="/explorer/screenshots" element={<ExplorerScreenshots />} />
             <Route path="/explorer/icons" element={<ExplorerIcons />} />
 
+            {/* ASO */}
+            <Route path="/aso" element={<Navigate to="/aso/explorer" replace />} />
+            <Route path="/aso/explorer" element={<AsoIndex />} />
+            <Route path="/aso/density" element={<AsoIndex />} />
+            <Route path="/aso/compare" element={<AsoIndex />} />
+
             {/* Publishers */}
             <Route path="/publishers" element={<PublishersIndex />} />
             <Route path="/publishers/:platform/:externalId" element={<PublishersShow />} />
@@ -99,7 +105,7 @@ export default function Router() {
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes></Suspense>
     </BrowserRouter>
   )

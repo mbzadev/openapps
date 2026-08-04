@@ -194,7 +194,7 @@ async function syncChart(env: Env, message: Extract<JobMessage, { kind: 'chart.s
   for (const entry of entries) {
     const store = await lookupWithBrowserFallback(env, message.platform, entry.external_id, message.countryCode)
     const appId = await persistStoreApp(env.DB, store, { country: message.countryCode, discoveredFrom: 'chart' })
-    persistedEntries.push({ rank: entry.rank, appId, price: entry.price, currency: entry.currency })
+    persistedEntries.push({ rank: entry.rank, appId, price: store.price, currency: store.currency })
   }
   const chartId = `(SELECT id FROM trending_charts WHERE platform=? AND collection=? AND country_code=? AND category_id=? AND snapshot_date=?)`
   await env.DB.batch([

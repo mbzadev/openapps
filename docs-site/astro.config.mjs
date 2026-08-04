@@ -17,7 +17,7 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: 'OpenApps by MBZA',
+      title: 'OpenApps',
       description:
         'Cloudflare-native App Store and Google Play intelligence with a 29-tool MCP server.',
       logo: {

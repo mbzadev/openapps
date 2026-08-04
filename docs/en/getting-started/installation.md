@@ -1,6 +1,6 @@
-# OpenApps by MBZA
+# OpenApps
 
-OpenApps by MBZA is a Cloudflare-native App Store and Google Play intelligence platform available at [apps.mbza.dev](https://apps.mbza.dev).
+OpenApps is a Cloudflare-native App Store and Google Play intelligence platform available at [apps.mbza.dev](https://apps.mbza.dev).
 
 Create an account in the browser. No server, database or container needs to be installed: the React application, API and MCP endpoint run on Cloudflare Workers; D1, KV, R2, Queues and Durable Objects provide the data plane.
 

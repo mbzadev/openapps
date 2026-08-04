@@ -213,7 +213,7 @@ export default function Settings() {
                   MCP Setup
                 </CardTitle>
                 <CardDescription>
-                  Connect Claude Code to your OpenApps by MBZA data via MCP.
+                  Connect Claude Code to your OpenApps data via MCP.
                 </CardDescription>
               </CardHeader>
             </Card>

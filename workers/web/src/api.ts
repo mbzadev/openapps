@@ -457,10 +457,11 @@ app.get('/apps/:platform/:externalId/keywords/compare', async (c) => {
     if (!row) continue
     const versions = await all<{ id: number; version: string }>(c.var.db, 'SELECT id,version FROM app_versions WHERE app_id=? ORDER BY id DESC', id)
     apps.push({ id, name: row.display_name || row.external_id, icon_url: row.icon_url, versions })
-    const requestedVersion = url.searchParams.get(`version_ids[${id}]`), versionId = requestedVersion ? Number(requestedVersion) : versions.at(-1)?.id
-    if (!versionId) continue
+    const requestedVersion = url.searchParams.get(`version_ids[${id}]`)
+    const versionId = requestedVersion ? Number(requestedVersion) : versions[0]?.id
     const listing = await first<{ title: string; subtitle: string | null; description: string; whats_new: string | null }>(c.var.db,
-      'SELECT title,subtitle,description,whats_new FROM app_store_listings WHERE app_id=? AND version_id=? AND locale=? ORDER BY id DESC LIMIT 1', id, versionId, locale)
+      `SELECT title,subtitle,description,whats_new FROM app_store_listings WHERE app_id=? AND locale=? ${versionId ? 'AND version_id=?' : ''} ORDER BY version_id DESC,id DESC LIMIT 1`,
+      id, locale, ...(versionId ? [versionId] : []))
     if (listing) keywords[String(id)] = Object.fromEntries(words(`${listing.title} ${listing.subtitle ?? ''} ${listing.description} ${listing.whats_new ?? ''}`, ngram, locale)
       .map((item) => [item.keyword, { count: item.count, density: item.density }]))
   }

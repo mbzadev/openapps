@@ -24,7 +24,6 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -57,20 +56,21 @@ function usePageTitle(app: AppDetailResource | null) {
 
   useEffect(() => {
     const path = location.pathname
-    let title = 'OpenApps by MBZA'
+    let title = 'OpenApps'
 
-    if (path === '/discovery/apps') title = 'Discover Apps — OpenApps by MBZA'
-    else if (path === '/discovery/publishers') title = 'Discover Publishers — OpenApps by MBZA'
-    else if (path === '/discovery/trending') title = 'Trending — OpenApps by MBZA'
-    else if (path === '/apps') title = 'Apps — OpenApps by MBZA'
-    else if (path === '/changes/apps') title = 'App Changes — OpenApps by MBZA'
-    else if (path === '/changes/competitors') title = 'Competitor Changes — OpenApps by MBZA'
-    else if (path === '/publishers' || path.startsWith('/publishers/')) title = 'Publishers — OpenApps by MBZA'
-    else if (path === '/competitors') title = 'Competitors — OpenApps by MBZA'
-    else if (path === '/explorer/screenshots') title = 'Screenshots — OpenApps by MBZA'
-    else if (path === '/explorer/icons') title = 'App Icons — OpenApps by MBZA'
-    else if (path === '/settings') title = 'Settings — OpenApps by MBZA'
-    else if (app?.name) title = `${app.name} — OpenApps by MBZA`
+    if (path === '/discovery/apps') title = 'Discover Apps — OpenApps'
+    else if (path === '/discovery/publishers') title = 'Discover Publishers — OpenApps'
+    else if (path === '/discovery/trending') title = 'Trending — OpenApps'
+    else if (path === '/apps') title = 'Apps — OpenApps'
+    else if (path === '/changes/apps') title = 'App Changes — OpenApps'
+    else if (path === '/changes/competitors') title = 'Competitor Changes — OpenApps'
+    else if (path === '/publishers' || path.startsWith('/publishers/')) title = 'Publishers — OpenApps'
+    else if (path === '/competitors') title = 'Competitors — OpenApps'
+    else if (path === '/explorer/screenshots') title = 'Screenshots — OpenApps'
+    else if (path === '/explorer/icons') title = 'App Icons — OpenApps'
+    else if (path.startsWith('/aso/')) title = 'ASO — OpenApps'
+    else if (path === '/settings') title = 'Settings — OpenApps'
+    else if (app?.name) title = `${app.name} — OpenApps`
 
     document.title = title
   }, [location.pathname, app?.name])
@@ -127,6 +127,11 @@ function useBreadcrumbs(app: AppDetailResource | null): BreadcrumbItemData[] {
     return [{ title: 'Explorer' }, { title: 'App Icons', href: '/explorer/icons' }]
   }
 
+  if (path.startsWith('/aso/')) {
+    const title = asoItems.find((item) => item.href === path)?.title ?? 'ASO'
+    return [{ title: 'ASO' }, { title, href: path }]
+  }
+
   if (path === '/settings') {
     return [{ title: 'Settings', href: '/settings' }]
   }
@@ -162,7 +167,6 @@ interface NavItem {
   title: string
   href: string
   icon: React.ComponentType<{ className?: string }>
-  comingSoon?: boolean
 }
 
 const discoveryItems: NavItem[] = [
@@ -179,9 +183,9 @@ const trackingItems: NavItem[] = [
 ]
 
 const asoItems: NavItem[] = [
-  { title: 'Keyword Explorer', href: '#', icon: Key, comingSoon: true },
-  { title: 'Keyword Density', href: '#', icon: BarIcon, comingSoon: true },
-  { title: 'Keyword Compare', href: '#', icon: GitCompare, comingSoon: true },
+  { title: 'Keyword Explorer', href: '/aso/explorer', icon: Key },
+  { title: 'Keyword Density', href: '/aso/density', icon: BarIcon },
+  { title: 'Keyword Compare', href: '/aso/compare', icon: GitCompare },
 ]
 
 const explorerItems: NavItem[] = [
@@ -202,30 +206,14 @@ function NavGroup({ label, items, pathname }: { label: string; items: NavItem[];
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              {item.comingSoon ? (
-                <>
-                  <SidebarMenuButton
-                    disabled
-                    aria-disabled
-                    tabIndex={-1}
-                    tooltip={`${item.title} — Coming soon`}
-                    className="cursor-not-allowed"
-                  >
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                  <SidebarMenuBadge className="text-primary">Soon</SidebarMenuBadge>
-                </>
-              ) : (
-                <SidebarMenuButton
-                  render={<Link to={item.href} />}
-                  tooltip={item.title}
-                  isActive={isNavItemActive(item.href, pathname)}
-                >
-                  <item.icon />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              )}
+              <SidebarMenuButton
+                render={<Link to={item.href} />}
+                tooltip={item.title}
+                isActive={isNavItemActive(item.href, pathname)}
+              >
+                <item.icon />
+                <span>{item.title}</span>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
@@ -246,7 +234,7 @@ export default function AppLayout() {
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton size="lg" tooltip="OpenApps by MBZA" render={<Link to="/discovery/trending" />}>
+              <SidebarMenuButton size="lg" tooltip="OpenApps" render={<Link to="/discovery/trending" />}>
                 <AppLogo />
               </SidebarMenuButton>
             </SidebarMenuItem>

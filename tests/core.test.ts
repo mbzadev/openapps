@@ -128,6 +128,31 @@ describe('store adapters', () => {
     expect(app.screenshots).toHaveLength(1)
   })
 
+  it('loads Apple charts from the Cloudflare-compatible Marketing Tools feed', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      feed: {
+        results: [{
+          id: '389801252',
+          name: 'Instagram',
+          artistName: 'Instagram, Inc.',
+          artworkUrl100: 'https://img/100x100.png',
+          genres: [{ genreId: '6008', name: 'Photo & Video' }],
+        }],
+      },
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+    const chart = await new AppleScraper().chart('top_free', 'us', 100)
+    expect(chart).toEqual([expect.objectContaining({
+      rank: 1,
+      external_id: '389801252',
+      name: 'Instagram',
+      publisher_name: 'Instagram, Inc.',
+      category_id: '6008',
+      is_free: true,
+    })])
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://rss.marketingtools.apple.com/api/v2/us/apps/top-free/100/apps.json')
+  })
+
   it('normalizes Google Play JSON-LD', async () => {
     const html = `<html><script type="application/ld+json">${JSON.stringify({ '@type': 'SoftwareApplication', name: 'Example Android', author: { name: 'MBZA', url: '/store/apps/dev?id=mbza' }, applicationCategory: 'Tools', image: 'https://img', aggregateRating: { ratingValue: '4.5', ratingCount: '100' }, offers: { price: '0', priceCurrency: 'USD' }, description: 'Description' })}</script></html>`
     vi.stubGlobal('fetch', vi.fn(async () => new Response(html, { headers: { 'content-type': 'text/html' } })))

@@ -79,7 +79,7 @@ export default function Mcp() {
           <CardHeader>
             <CardTitle>What is MCP?</CardTitle>
             <CardDescription>
-              Model Context Protocol (MCP) lets AI tools like Claude Code access your OpenApps by MBZA data directly.
+              Model Context Protocol (MCP) lets AI tools like Claude Code access your OpenApps data directly.
               Ask questions like "What are Instagram's latest store changes?" and get answers from your tracked data.
             </CardDescription>
           </CardHeader>

@@ -12,7 +12,7 @@
     "directory": "../../web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/mcp", "/oauth/*", "/.well-known/*", "/config.js"]
+    "run_worker_first": ["/", "/api/*", "/mcp", "/oauth/*", "/.well-known/*", "/config.js"]
   },
   "d1_databases": [
     {
@@ -44,7 +44,7 @@
     { "name": "API_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }
   ],
   "vars": {
-    "APP_NAME": "OpenApps by MBZA",
+    "APP_NAME": "OpenApps",
     "APP_URL": "https://apps.mbza.dev",
     "ENVIRONMENT": "production",
     "TRACKED_APP_REFRESH_HOURS": "24"
@@ -81,7 +81,7 @@
           { "binding": "RECONCILE", "queue": "openapps-reconcile-preview" }
         ]
       },
-      "vars": { "APP_NAME": "OpenApps by MBZA Preview", "APP_URL": "https://openapps-web-preview.mbza.workers.dev", "ENVIRONMENT": "preview", "TRACKED_APP_REFRESH_HOURS": "24" }
+      "vars": { "APP_NAME": "OpenApps Preview", "APP_URL": "https://openapps-web-preview.mbza.workers.dev", "ENVIRONMENT": "preview", "TRACKED_APP_REFRESH_HOURS": "24" }
     }
   }
 }

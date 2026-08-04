@@ -20,7 +20,7 @@ function client() {
     SYNC_TRACKED_IOS: queue, SYNC_TRACKED_ANDROID: queue,
     SYNC_ON_DEMAND_IOS: queue, SYNC_ON_DEMAND_ANDROID: queue,
     CHARTS_IOS: queue, CHARTS_ANDROID: queue, RECONCILE: queue,
-    APP_NAME: 'OpenApps by MBZA', APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'test',
+    APP_NAME: 'OpenApps', APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'test',
   }
   const call = async (path: string, init: RequestInit = {}, authenticated = true) => {
     const headers = new Headers(init.headers)

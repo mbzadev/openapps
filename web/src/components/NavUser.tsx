@@ -133,7 +133,7 @@ export default function NavUser() {
                     value={theme}
                     onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
                   >
-                    <DropdownMenuRadioItem value="light" disabled>
+                    <DropdownMenuRadioItem value="light">
                       <Sun />
                       Light
                     </DropdownMenuRadioItem>
@@ -141,7 +141,7 @@ export default function NavUser() {
                       <Moon />
                       Dark
                     </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="system" disabled>
+                    <DropdownMenuRadioItem value="system">
                       <Monitor />
                       System
                     </DropdownMenuRadioItem>
