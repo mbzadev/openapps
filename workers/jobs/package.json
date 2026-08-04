@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@cloudflare/puppeteer": "^1.2.0",
+    "@openapps/connectors": "3.0.0",
     "@openapps/core": "2.0.0",
     "@openapps/db": "2.0.0",
     "@openapps/scrapers": "2.0.0",

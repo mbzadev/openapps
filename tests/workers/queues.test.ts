@@ -47,7 +47,7 @@ describe('at-least-once Queue delivery', () => {
     const ctx = createExecutionContext()
     await handleBatch(dlq, testEnv)
     expect((await getQueueResult(dlq, ctx)).explicitAcks).toEqual(['dead'])
-    expect((await testEnv.DB.prepare("SELECT status,failure_reason FROM sync_tasks WHERE task_id='retry-task'").first())).toEqual({ status: 'failed', failure_reason: 'dead_letter' })
+    expect((await testEnv.DB.prepare("SELECT status,failure_reason FROM sync_tasks WHERE task_id='retry-task'").first())).toEqual({ status: 'dead-letter', failure_reason: 'dead_letter' })
     expect((await testEnv.ARTIFACTS.list({ prefix: 'dlq/' })).objects.length).toBeGreaterThanOrEqual(1)
   })
 

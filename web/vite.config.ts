@@ -40,6 +40,7 @@ export default defineConfig(({ command }) => {
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:7460'
 
   return {
+    base: command === 'build' ? '/legacy/' : '/',
     plugins: [react(), tailwindcss(), runtimeConfigPlugin()],
     define: {
       __APP_VERSION__: JSON.stringify(readRepoVersion()),
@@ -59,6 +60,15 @@ export default defineConfig(({ command }) => {
             '/storage': { target: backendUrl, changeOrigin: true },
           }
         : undefined,
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          entryFileNames: 'assets/openapps.js',
+          chunkFileNames: 'assets/chunks/[name]-[hash].js',
+          assetFileNames: (assetInfo) => assetInfo.name?.endsWith('.css') ? 'assets/openapps.css' : 'assets/[name]-[hash][extname]',
+        },
+      },
     },
   }
 })

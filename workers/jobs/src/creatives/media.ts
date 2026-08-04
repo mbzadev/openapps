@@ -5,7 +5,7 @@ import type { Env } from '../env.js'
 const MAX_MEDIA_BYTES = 250 * 1024 * 1024
 const ALLOWED_HOST_SUFFIXES = [
   'fbcdn.net', 'facebook.com', 'fbsbx.com',
-  'googleusercontent.com', 'gstatic.com', 'ggpht.com', 'youtube.com', 'ytimg.com', 'doubleclick.net',
+  'googleusercontent.com', 'googlevideo.com', 'gstatic.com', 'ggpht.com', 'googlesyndication.com', 'youtube.com', 'ytimg.com', 'doubleclick.net',
   'tiktokcdn.com', 'tiktokcdn-eu.com', 'byteoversea.com', 'ibyteimg.com', 'muscdn.com', 'tiktok.com',
 ]
 

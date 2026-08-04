@@ -326,6 +326,16 @@ async function reconcile(env: Env, message: Extract<JobMessage, { kind: 'sync.re
 async function archiveFailure(env: Env, body: unknown, error: unknown) {
   const key = `dlq/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.json`
   await env.ARTIFACTS.put(key, JSON.stringify({ failed_at: nowIso(), body, error: error instanceof Error ? error.stack ?? error.message : String(error) }), { httpMetadata: { contentType: 'application/json' } })
+  return key
+}
+
+async function startTaskAttempt(env: Env, taskId: string, source: string | null) {
+  const task = await env.DB.prepare('SELECT attempt_count FROM sync_tasks WHERE task_id=?').bind(taskId).first<{ attempt_count: number }>()
+  if (!task) return
+  const now = nowIso()
+  await env.DB.prepare(`INSERT OR IGNORE INTO payload_task_attempts
+    (task_id,attempt,status,source,started_at,created_at,updated_at) VALUES (?,?, 'running', ?,?,?,?)`)
+    .bind(taskId, task.attempt_count, source, now, now, now).run()
 }
 
 async function claimTask(env: Env, message: JobMessage): Promise<boolean> {
@@ -334,7 +344,11 @@ async function claimTask(env: Env, message: JobMessage): Promise<boolean> {
     taskId: message.taskId, kind: message.kind, payload: message,
     status: 'running', attemptCount: 1, createdAt: now, updatedAt: now,
   }).onConflictDoNothing({ target: syncTasks.taskId }).run()
-  if ((inserted.meta.changes ?? 0) > 0) return true
+  if ((inserted.meta.changes ?? 0) > 0) {
+    const source = 'source' in message && typeof message.source === 'string' ? message.source : 'platform' in message ? message.platform : null
+    await startTaskAttempt(env, message.taskId, source)
+    return true
+  }
 
   // Queue delivery is at-least-once. A completed or concurrently-running task
   // is acknowledged without repeating its side effects. A failed delivery can
@@ -345,31 +359,59 @@ async function claimTask(env: Env, message: JobMessage): Promise<boolean> {
     WHERE task_id=? AND status!='completed'
       AND (status!='running' OR datetime(updated_at) < datetime('now','-10 minutes'))`)
     .bind(now, message.taskId).run()
-  return (reclaimed.meta.changes ?? 0) > 0
+  const claimed = (reclaimed.meta.changes ?? 0) > 0
+  if (claimed) {
+    const source = 'source' in message && typeof message.source === 'string' ? message.source : 'platform' in message ? message.platform : null
+    await startTaskAttempt(env, message.taskId, source)
+  }
+  return claimed
 }
 
 async function completeTask(env: Env, taskId: string) {
-  await env.DB.prepare("UPDATE sync_tasks SET status='completed',available_at=NULL,updated_at=? WHERE task_id=?")
-    .bind(nowIso(), taskId).run()
+  const now = nowIso()
+  await env.DB.batch([
+    env.DB.prepare("UPDATE sync_tasks SET status='completed',available_at=NULL,updated_at=? WHERE task_id=?").bind(now, taskId),
+    env.DB.prepare(`UPDATE payload_task_attempts SET status='completed',completed_at=?,
+      duration_ms=MAX(0,CAST((julianday(?) - julianday(started_at))*86400000 AS INTEGER)),updated_at=?
+      WHERE task_id=? AND status='running'`).bind(now, now, now, taskId),
+  ])
 }
 
 async function retryTask(env: Env, taskId: string, error: unknown, delaySeconds: number) {
   const message = error instanceof Error ? error.message : String(error)
-  await env.DB.prepare(`UPDATE sync_tasks SET status='pending',failure_reason='queue_retry',
+  const now = nowIso()
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE sync_tasks SET status='pending',failure_reason='queue_retry',
       error_message=?,available_at=datetime('now', ?),updated_at=? WHERE task_id=?`)
-    .bind(message, `+${delaySeconds} seconds`, nowIso(), taskId).run()
+      .bind(message, `+${delaySeconds} seconds`, now, taskId),
+    env.DB.prepare(`UPDATE payload_task_attempts SET status='retrying',completed_at=?,error_message=?,
+      duration_ms=MAX(0,CAST((julianday(?) - julianday(started_at))*86400000 AS INTEGER)),updated_at=?
+      WHERE task_id=? AND status='running'`).bind(now, message, now, now, taskId),
+  ])
 }
 
 export async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
   if (batch.queue.includes('dead-letter')) {
     for (const item of batch.messages) {
-      await archiveFailure(env, item.body, `Dead-lettered after ${item.attempts} attempts`)
+      const errorMessage = `Dead-lettered after ${item.attempts} attempts`
+      const rawR2Key = await archiveFailure(env, item.body, errorMessage)
       const parsed = jobMessageSchema.safeParse(item.body)
       if (parsed.success) {
-        await env.DB.prepare("UPDATE sync_tasks SET status='failed',failure_reason='dead_letter',error_message=?,updated_at=? WHERE task_id=?")
-          .bind(`Dead-lettered after ${item.attempts} attempts`, nowIso(), parsed.data.taskId).run()
+        const failedAt = nowIso()
+        const source = 'source' in parsed.data && typeof parsed.data.source === 'string' ? parsed.data.source : 'platform' in parsed.data ? parsed.data.platform : null
+        await env.DB.batch([
+          env.DB.prepare("UPDATE sync_tasks SET status='dead-letter',failure_reason='dead_letter',error_message=?,updated_at=? WHERE task_id=?")
+            .bind(errorMessage, failedAt, parsed.data.taskId),
+          env.DB.prepare(`INSERT INTO payload_dead_letters
+            (task_id,kind,source,status,attempt_count,error_message,payload,raw_r2_key,failed_at,created_at,updated_at)
+            VALUES (?,?,?,'open',?,?,?,?,?,?,?) ON CONFLICT(task_id) DO UPDATE SET status='open',attempt_count=excluded.attempt_count,
+              error_message=excluded.error_message,payload=excluded.payload,raw_r2_key=excluded.raw_r2_key,failed_at=excluded.failed_at,updated_at=excluded.updated_at`)
+            .bind(parsed.data.taskId, parsed.data.kind, source, item.attempts, errorMessage, JSON.stringify(parsed.data), rawR2Key, failedAt, failedAt, failedAt),
+          env.DB.prepare(`UPDATE payload_task_attempts SET status='failed',completed_at=?,error_code='dead_letter',error_message=?,raw_r2_key=?,updated_at=?
+            WHERE task_id=? AND status IN ('running','retrying')`).bind(failedAt, errorMessage, rawR2Key, failedAt, parsed.data.taskId),
+        ])
         if (parsed.data.kind === 'app.sync' || parsed.data.kind === 'app.storefront') {
-          await failSync(env, parsed.data.appId, `Dead-lettered after ${item.attempts} attempts`)
+          await failSync(env, parsed.data.appId, errorMessage)
         }
       }
       item.ack()

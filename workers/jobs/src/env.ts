@@ -12,6 +12,8 @@ export type Env = Cloudflare.Env & {
   CREATIVE_DISCOVERY: Queue<JobMessage>
   CREATIVE_MEDIA: Queue<JobMessage>
   CREATIVES_ENABLED?: string
+  CREATIVE_SOURCES?: string
+  CREATIVE_BACKFILL_LIMIT?: string
   META_GRAPH_API_VERSION?: string
   META_AD_LIBRARY_ACCESS_TOKEN?: string
   TIKTOK_CLIENT_KEY?: string

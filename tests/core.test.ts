@@ -58,12 +58,12 @@ describe('native SPA route matching', () => {
   })
 })
 
-describe('production and Cloudflare preview origins', () => {
-  it('keeps production canonical and makes version previews self-contained', () => {
+describe('canonical production origin', () => {
+  it('keeps every public URL canonical and refuses preview hosts', () => {
     expect(publicAppUrl({ APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'production' }, 'https://attacker.invalid/path')).toBe('https://apps.mbza.dev')
     const preview = 'https://6f2d2f2-openapps-web-preview.mbza.workers.dev'
-    expect(publicAppUrl({ APP_URL: 'https://openapps-web-preview.mbza.workers.dev', ENVIRONMENT: 'preview' }, `${preview}/mcp`)).toBe(preview)
-    expect(allowedCorsOrigin(preview)).toBe(preview)
+    expect(publicAppUrl({ APP_URL: 'https://apps.mbza.dev', ENVIRONMENT: 'production' }, `${preview}/mcp`)).toBe('https://apps.mbza.dev')
+    expect(allowedCorsOrigin(preview)).toBe('')
     expect(allowedCorsOrigin('https://apps.mbza.dev.attacker.invalid')).toBe('')
   })
 })

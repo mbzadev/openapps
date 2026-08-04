@@ -51,6 +51,11 @@
 /packages/*/dist/
 /mcp/dist/
 /workers/*/dist
+/platform/.next/
+/platform/.open-next/
+/platform/public/
+/platform/cloudflare-env.d.ts
+/platform/tsconfig.tsbuildinfo
 **/.wrangler/
 /test-results/
 /playwright-report/

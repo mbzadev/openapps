@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeGoogleAd, normalizeMetaAd, normalizeTikTokAd } from '../../workers/jobs/src/creatives/connectors.js'
+import { isGoogleCreativeAssetUrl, normalizeGoogleAd, normalizeMetaAd, normalizeTikTokAd } from '../../workers/jobs/src/creatives/connectors.js'
 import { isAllowedCreativeMediaUrl } from '../../workers/jobs/src/creatives/media.js'
 
 describe('creative connector normalization', () => {
@@ -26,5 +26,12 @@ describe('creative media SSRF policy', () => {
     expect(isAllowedCreativeMediaUrl('http://video.xx.fbcdn.net/ad.mp4')).toBe(false)
     expect(isAllowedCreativeMediaUrl('https://fbcdn.net.evil.example/ad.mp4')).toBe(false)
     expect(isAllowedCreativeMediaUrl('https://127.0.0.1/ad.mp4')).toBe(false)
+  })
+
+  it('keeps Google ad assets while excluding account avatars and lookalike hosts', () => {
+    expect(isGoogleCreativeAssetUrl('https://tpc.googlesyndication.com/archive/simgad/123')).toBe(true)
+    expect(isGoogleCreativeAssetUrl('https://rr1---sn.example.googlevideo.com/videoplayback?id=123')).toBe(true)
+    expect(isGoogleCreativeAssetUrl('https://lh3.googleusercontent.com/account-avatar')).toBe(false)
+    expect(isGoogleCreativeAssetUrl('https://tpc.googlesyndication.com.evil.example/archive/simgad/123')).toBe(false)
   })
 })

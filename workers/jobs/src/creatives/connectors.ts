@@ -1,5 +1,5 @@
 import puppeteer from '@cloudflare/puppeteer'
-import { adCreativeRecordSchema, type AdCreativeRecord, type AdSource } from '@openapps/core'
+import { adCreativeRecordSchema, all, type AdCreativeRecord } from '@openapps/core'
 import type { Env } from '../env.js'
 
 export interface CreativeTarget {
@@ -17,6 +17,9 @@ export interface ConnectorResult {
 }
 
 type JsonObject = Record<string, unknown>
+type GoogleCreativeMedia = { sourceUrl: string; mediaType: 'image' | 'video' }
+type GoogleCreativeRow = { href: string; body: string | null; media: GoogleCreativeMedia[] }
+const GOOGLE_DETAIL_ENRICHMENT_LIMIT = 4
 const object = (value: unknown): JsonObject => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : {}
 const string = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null
 const strings = (value: unknown) => Array.isArray(value) ? value.map(string).filter((item): item is string => item !== null) : string(value) ? [string(value)!] : []
@@ -26,6 +29,16 @@ const iso = (value: unknown) => {
   if (!raw) return null
   const parsed = /^\d{10}$/.test(raw) ? new Date(Number(raw) * 1000) : new Date(raw)
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+export function isGoogleCreativeAssetUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl)
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) return false
+    const host = url.hostname.toLocaleLowerCase().replace(/\.$/, '')
+    if (host === 'tpc.googlesyndication.com' || host.endsWith('.tpc.googlesyndication.com')) return url.pathname.startsWith('/archive/')
+    return host === 'googlevideo.com' || host.endsWith('.googlevideo.com')
+  } catch { return false }
 }
 
 function mediaFrom(value: unknown) {
@@ -146,7 +159,7 @@ async function browserPayload(env: Env, url: string, normalize: (value: unknown)
   } finally { await browser.close() }
 }
 
-async function meta(env: Env, target: CreativeTarget): Promise<ConnectorResult> {
+export async function collectMeta(env: Env, target: CreativeTarget): Promise<ConnectorResult> {
   if (env.META_AD_LIBRARY_ACCESS_TOKEN) {
     const params = new URLSearchParams({
       access_token: env.META_AD_LIBRARY_ACCESS_TOKEN, ad_type: 'ALL', search_terms: target.displayName,
@@ -164,13 +177,136 @@ async function meta(env: Env, target: CreativeTarget): Promise<ConnectorResult> 
   return browserPayload(env, `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=${query}&search_type=keyword_unordered`, normalizeMetaAd)
 }
 
-async function google(env: Env, target: CreativeTarget): Promise<ConnectorResult> {
-  const query = encodeURIComponent(target.developerDomain ?? target.displayName)
-  const parameter = target.developerDomain ? 'domain' : 'query'
-  return browserPayload(env, `https://adstransparency.google.com/?region=anywhere&${parameter}=${query}`, normalizeGoogleAd)
+export async function collectGoogle(env: Env, target: CreativeTarget): Promise<ConnectorResult> {
+  const searchTerm = target.developerDomain ?? target.displayName.replace(/\s*,?\s+(incorporated|inc|limited|ltd|llc|corp(?:oration)?)\.?$/i, '')
+  const browser = await puppeteer.launch(env.BROWSER)
+  try {
+    const page = await browser.newPage()
+    const raw: unknown[] = []
+    const networkReads: Array<Promise<void>> = []
+    page.on('response', (response) => {
+      const contentType = response.headers()['content-type'] ?? ''
+      if (!contentType.includes('json')) return
+      networkReads.push(response.json().then((payload) => { raw.push(payload) }).catch(() => undefined))
+    })
+    const query = encodeURIComponent(searchTerm)
+    await page.goto(`https://adstransparency.google.com/search?region=anywhere&query=${query}`, { waitUntil: 'networkidle0', timeout: 30_000 })
+    await page.waitForSelector('[role="option"]', { timeout: 8_000 }).catch(() => null)
+    const candidates = await page.evaluate(() => {
+      const browserDocument = (globalThis as unknown as { document: { querySelectorAll(selector: string): ArrayLike<{ textContent: string | null }> } }).document
+      return Array.from(browserDocument.querySelectorAll('[role="option"]')).map((option) => option.textContent?.trim() ?? '')
+    })
+    const normalizedSearch = searchTerm.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const selectedIndex = candidates.findIndex((candidate) => {
+      const normalized = candidate.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+      return normalized === normalizedSearch || normalized.startsWith(`${normalizedSearch} `)
+    })
+    if (selectedIndex < 0) {
+      await Promise.allSettled(networkReads)
+      return { records: [], raw: { searchTerm, candidates, payloads: raw }, coverage: 'partial', transport: 'browser-run' }
+    }
+
+    const navigation = page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30_000 }).catch(() => null)
+    await page.evaluate((index) => {
+      const browserDocument = (globalThis as unknown as { document: { querySelectorAll(selector: string): ArrayLike<{ click(): void }> } }).document
+      browserDocument.querySelectorAll('[role="option"]')[index]?.click()
+    }, selectedIndex)
+    await navigation
+    await page.waitForSelector('a[href*="/creative/"]', { timeout: 10_000 }).catch(() => null)
+    const advertiserUrl = page.url()
+    const advertiserId = advertiserUrl.match(/\/advertiser\/([^/?]+)/)?.[1] ?? null
+    const domRows = await page.evaluate(() => {
+      const browserDocument = (globalThis as unknown as { document: { querySelectorAll(selector: string): ArrayLike<{
+        getAttribute(name: string): string | null
+        querySelector(selector: string): unknown
+      }> } }).document
+      return Array.from(browserDocument.querySelectorAll('a[href*="/creative/"]')).map((link, index) => ({
+        index, href: link.getAttribute('href'), hasFrame: Boolean(link.querySelector('iframe')),
+      })).filter((row): row is { index: number; href: string; hasFrame: boolean } => Boolean(row.href))
+    })
+    const uniqueRows = [...new Map(domRows.map((row) => [row.href, row])).values()]
+    const sourceIds = uniqueRows.map((row) => row.href.match(/\/creative\/([^/?]+)/)?.[1]).filter((value): value is string => Boolean(value))
+    const placeholders = sourceIds.map(() => '?').join(',')
+    const archived = placeholders ? await all<{ source_ad_id: string }>(env.DB, `SELECT DISTINCT a.source_ad_id FROM ads a
+      JOIN ad_creative_variants v ON v.ad_id=a.id JOIN ad_creative_assets ca ON ca.variant_id=v.id
+      WHERE a.source='google' AND a.source_ad_id IN (${placeholders})`, ...sourceIds) : []
+    const archivedIds = new Set(archived.map((row) => row.source_ad_id))
+    const missingMedia = uniqueRows.filter((row) => {
+      const sourceAdId = row.href.match(/\/creative\/([^/?]+)/)?.[1]
+      return sourceAdId && !archivedIds.has(sourceAdId)
+    })
+    const priorRuns = await env.DB.prepare("SELECT COUNT(*) AS count FROM ad_collection_runs WHERE target_id=? AND source='google'")
+      .bind(target.id).first<{ count: number }>()
+    const offset = missingMedia.length ? (Number(priorRuns?.count ?? 0) * GOOGLE_DETAIL_ENRICHMENT_LIMIT) % missingMedia.length : 0
+    const detailCandidates = [...missingMedia.slice(offset), ...missingMedia.slice(0, offset)].slice(0, GOOGLE_DETAIL_ENRICHMENT_LIMIT)
+    const enrichDetail = async (row: (typeof detailCandidates)[number], detailPage: Awaited<ReturnType<typeof browser.newPage>>): Promise<GoogleCreativeRow> => {
+      const sourceUrl = new URL(row.href, 'https://adstransparency.google.com').toString()
+      try {
+        await detailPage.goto(sourceUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+        await detailPage.waitForSelector('img[src*="googlesyndication.com/archive/"],video[src],source[src]', { timeout: 8_000 }).catch(() => null)
+        const details = await detailPage.evaluate(() => {
+          const browserDocument = (globalThis as unknown as { document: {
+            querySelectorAll(selector: string): ArrayLike<{ tagName: string; getAttribute(name: string): string | null }>
+          } }).document
+          const media = Array.from(browserDocument.querySelectorAll('img[src],video[src],video[poster],source[src]')).flatMap((element) => {
+            const poster = element.getAttribute('poster')
+            const values = [element.getAttribute('src'), poster].filter((value): value is string => Boolean(value))
+            return values.map((sourceUrl) => ({
+              sourceUrl,
+              mediaType: element.tagName === 'IMG' || sourceUrl === poster ? 'image' as const : 'video' as const,
+            }))
+          }).filter((item) => {
+            try {
+              const url = new URL(item.sourceUrl)
+              const host = url.hostname.toLocaleLowerCase().replace(/\.$/, '')
+              return url.protocol === 'https:' && (
+                ((host === 'tpc.googlesyndication.com' || host.endsWith('.tpc.googlesyndication.com')) && url.pathname.startsWith('/archive/')) ||
+                host === 'googlevideo.com' || host.endsWith('.googlevideo.com')
+              )
+            } catch { return false }
+          })
+          return { media }
+        })
+        const media = [...new Map(details.media.filter((item) => isGoogleCreativeAssetUrl(item.sourceUrl)).map((item) => [item.sourceUrl, item])).values()].slice(0, 20)
+        return { href: row.href, body: null, media }
+      } catch {
+        return { href: row.href, body: null, media: [] }
+      } finally {
+        await detailPage.close().catch(() => undefined)
+      }
+    }
+    const detailRows: GoogleCreativeRow[] = []
+    for (let index = 0; index < detailCandidates.length; index += 4) {
+      const batch = detailCandidates.slice(index, index + 4)
+      const detailPages: Array<Awaited<ReturnType<typeof browser.newPage>>> = []
+      for (const _row of batch) detailPages.push(await browser.newPage())
+      detailRows.push(...await Promise.all(batch.map((row, batchIndex) => enrichDetail(row, detailPages[batchIndex]!))))
+    }
+    const detailsByHref = new Map(detailRows.map((row) => [row.href, row]))
+    const creativeRows = domRows.map((row) => detailsByHref.get(row.href) ?? { href: row.href, body: null, media: [] })
+    await Promise.allSettled(networkReads)
+    const enrichedRows = [...new Map(creativeRows.map((row) => [row.href, row])).values()]
+    const records = enrichedRows.map(({ href, body, media }) => {
+      const sourceAdId = href.match(/\/creative\/([^/?]+)/)?.[1]
+      if (!sourceAdId) return null
+      const sourceUrl = new URL(href, 'https://adstransparency.google.com').toString()
+      return adCreativeRecordSchema.parse({
+        source: 'google', sourceAdId, sourceUrl,
+        advertiser: { sourceId: advertiserId, name: searchTerm, domain: target.developerDomain, sourceUrl: advertiserUrl },
+        status: 'active', headline: null, body, callToAction: null, landingUrl: null,
+        platforms: [], languages: [], countries: [], startedAt: null, endedAt: null,
+        impressions: null, reach: null, spend: null, currency: null,
+        variants: [{ sourceVariantId: sourceAdId, format: media.some((item) => item.mediaType === 'video') ? 'video' : media.length > 1 ? 'carousel' : media.length ? 'image' : body ? 'text' : 'unknown',
+          headline: null, body, callToAction: null, landingUrl: null, position: 0,
+          media: media.map((item, position) => ({ ...item, role: position ? 'carousel' as const : 'primary' as const, position })) }],
+        raw: { href },
+      })
+    }).filter((record): record is AdCreativeRecord => record !== null)
+    return { records, raw: { searchTerm, advertiserUrl, candidates, creatives: enrichedRows, payloads: raw }, coverage: 'partial', transport: 'browser-run' }
+  } finally { await browser.close() }
 }
 
-async function tiktok(env: Env, target: CreativeTarget): Promise<ConnectorResult> {
+export async function collectTikTok(env: Env, target: CreativeTarget): Promise<ConnectorResult> {
   if (env.TIKTOK_CLIENT_KEY && env.TIKTOK_CLIENT_SECRET) {
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_key: env.TIKTOK_CLIENT_KEY, client_secret: env.TIKTOK_CLIENT_SECRET, grant_type: 'client_credentials' }) })
@@ -192,5 +328,3 @@ async function tiktok(env: Env, target: CreativeTarget): Promise<ConnectorResult
   }
   return browserPayload(env, `https://library.tiktok.com/ads?region=all&query=${encodeURIComponent(target.displayName)}`, normalizeTikTokAd)
 }
-
-export const creativeConnectors: Record<AdSource, (env: Env, target: CreativeTarget) => Promise<ConnectorResult>> = { meta, google, tiktok }

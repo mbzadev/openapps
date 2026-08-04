@@ -52,7 +52,11 @@ async function sourceCoverage(db: Variables['db'], extraWhere = '', bindings: un
 type CreativeContext = Context<{ Bindings: Env; Variables: Variables }>
 
 async function listCreatives(c: CreativeContext, forced: { appId?: number; advertiserId?: number } = {}) {
-  const parsed = listSchema.safeParse({ ...c.req.query(), ...forced })
+  const parsed = listSchema.safeParse({
+    ...c.req.query(),
+    ...(forced.appId ? { app_id: forced.appId } : {}),
+    ...(forced.advertiserId ? { advertiser_id: forced.advertiserId } : {}),
+  })
   if (!parsed.success) return c.json(validation(parsed.error), 422)
   const query = parsed.data, where: string[] = [], bindings: unknown[] = []
   if (query.search) { where.push('(a.headline LIKE ? OR a.body LIKE ? OR adv.name LIKE ?)'); bindings.push(`%${query.search}%`, `%${query.search}%`, `%${query.search}%`) }
@@ -79,7 +83,7 @@ async function listCreatives(c: CreativeContext, forced: { appId?: number; adver
     (SELECT aa.mime_type FROM ad_creative_variants v JOIN ad_creative_assets ca ON ca.variant_id=v.id JOIN ad_assets aa ON aa.id=ca.asset_id
       WHERE v.ad_id=a.id ORDER BY ca.role='thumbnail' DESC,ca.position LIMIT 1) asset_mime_type
     FROM ads a LEFT JOIN ad_advertisers adv ON adv.id=a.advertiser_id ${condition}
-    ORDER BY COALESCE(a.started_at,a.first_collected_at) DESC,a.id DESC LIMIT ? OFFSET ?`, ...bindings, query.per_page, (query.page - 1) * query.per_page)
+    ORDER BY asset_sha256 IS NULL,COALESCE(a.started_at,a.first_collected_at) DESC,a.id DESC LIMIT ? OFFSET ?`, ...bindings, query.per_page, (query.page - 1) * query.per_page)
   const lastPage = Math.max(1, Math.ceil(total / query.per_page))
   return c.json({ data: rows.map(creativeSummary), links: { prev: query.page > 1 ? `?page=${query.page - 1}` : null, next: query.page < lastPage ? `?page=${query.page + 1}` : null },
     meta: { current_page: query.page, last_page: lastPage, per_page: query.per_page, total }, coverage: await sourceCoverage(c.var.db) })
@@ -150,7 +154,7 @@ creatives.get('/apps/:platform/:externalId/creatives', async (c) => {
   if (!app) return c.json({ message: 'Not found.' }, 404)
   const target = await ensureTarget(c, app.id)
   const stale = !target?.last_collected_at || Date.parse(target.last_collected_at) < Date.now() - 7 * 86_400_000
-  if (target && stale && String(c.env.CREATIVES_ENABLED) === 'true' && target.status !== 'pending' && target.status !== 'running') c.executionCtx.waitUntil(enqueueTarget(c, target.id, 'viewed'))
+  if (target && stale && String(c.env.CREATIVES_ENABLED) === 'true' && target.status !== 'running') c.executionCtx.waitUntil(enqueueTarget(c, target.id, 'viewed'))
   const response = await listCreatives(c, { appId: app.id })
   response.headers.set('x-openapps-creative-sync-status', String(c.env.CREATIVES_ENABLED) !== 'true' ? 'disabled' : target?.status ?? 'unavailable')
   return response

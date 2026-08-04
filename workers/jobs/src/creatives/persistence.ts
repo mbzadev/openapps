@@ -28,6 +28,23 @@ function hostname(url: string | null) {
   try { return new URL(url).hostname.toLocaleLowerCase().replace(/^www\./, '') } catch { return null }
 }
 
+function companyAlias(value: string) {
+  return normalizeAdvertiserAlias(value).replace(/\s+(incorporated|inc|limited|ltd|llc|corp|corporation)$/, '')
+}
+
+async function linkPublisherApps(env: Env, adId: number, publisherId: number, publisherName: string, matchReason: 'developer_domain' | 'advertiser_alias', now: string) {
+  const apps = await all<{ id: number }>(env.DB, `SELECT ap.id FROM apps ap JOIN publishers p ON p.id=ap.publisher_id
+    WHERE ap.publisher_id=? OR p.name=? COLLATE NOCASE`, publisherId, publisherName)
+  for (const app of apps) {
+    await env.DB.prepare(`INSERT INTO ad_app_links (ad_id,app_id,confidence,match_reason,created_at,updated_at)
+      VALUES (?,?,'strong',?,?,?) ON CONFLICT(ad_id,app_id) WHERE app_id IS NOT NULL DO UPDATE SET
+      confidence=CASE WHEN ad_app_links.confidence='certain' THEN ad_app_links.confidence ELSE 'strong' END,
+      match_reason=CASE WHEN ad_app_links.confidence='certain' THEN ad_app_links.match_reason ELSE excluded.match_reason END,
+      updated_at=excluded.updated_at`).bind(adId, app.id, matchReason, now, now).run()
+  }
+  return apps.length
+}
+
 async function persistAdvertiser(env: Env, record: AdCreativeRecord) {
   const now = nowIso()
   let existing = record.advertiser.sourceId
@@ -53,29 +70,39 @@ async function linkAd(env: Env, adId: number, advertiserId: number, record: AdCr
     const app = await first<{ id: number }>(env.DB, 'SELECT id FROM apps WHERE platform=? AND external_id=?', certain.platform, certain.externalId)
     if (app) {
       await env.DB.prepare(`INSERT INTO ad_app_links (ad_id,app_id,confidence,match_reason,created_at,updated_at) VALUES (?,?,'certain','store_id',?,?)
-        ON CONFLICT(ad_id,app_id) DO UPDATE SET confidence='certain',match_reason='store_id',updated_at=excluded.updated_at`).bind(adId, app.id, now, now).run()
+        ON CONFLICT(ad_id,app_id) WHERE app_id IS NOT NULL DO UPDATE SET confidence='certain',match_reason='store_id',updated_at=excluded.updated_at`).bind(adId, app.id, now, now).run()
       return { linked: 1, candidate: 0 }
     }
   }
 
   const landingDomain = hostname(record.landingUrl)
   if (landingDomain && target.developerDomain && (landingDomain === target.developerDomain || landingDomain.endsWith(`.${target.developerDomain}`)) && target.publisherId) {
-    const apps = await all<{ id: number }>(env.DB, 'SELECT id FROM apps WHERE publisher_id=?', target.publisherId)
-    for (const app of apps) await env.DB.prepare(`INSERT OR IGNORE INTO ad_app_links (ad_id,app_id,confidence,match_reason,created_at,updated_at)
-      VALUES (?,?,'strong','developer_domain',?,?)`).bind(adId, app.id, now, now).run()
-    if (apps.length) return { linked: apps.length, candidate: 0 }
+    const linked = await linkPublisherApps(env, adId, target.publisherId, target.displayName, 'developer_domain', now)
+    if (linked) return { linked, candidate: 0 }
   }
 
-  const alias = normalizeAdvertiserAlias(record.advertiser.name)
-  const targetAlias = normalizeAdvertiserAlias(target.displayName)
+  // A Google transparency result is returned only after the connector has selected
+  // a concrete advertiser identity for this publisher target. Keep that verified
+  // source identity linked to every iOS/Android app owned by the publisher.
+  if (record.source === 'google' && record.advertiser.sourceId && target.publisherId) {
+    const alias = companyAlias(record.advertiser.name)
+    if (alias) {
+      await env.DB.prepare(`INSERT INTO ad_advertiser_aliases (advertiser_id,alias,normalized_alias,is_verified,created_at,updated_at)
+        VALUES (?,?,?,1,?,?) ON CONFLICT(advertiser_id,normalized_alias) DO UPDATE SET is_verified=1,updated_at=excluded.updated_at`)
+        .bind(advertiserId, record.advertiser.name, alias, now, now).run()
+    }
+    const linked = await linkPublisherApps(env, adId, target.publisherId, target.displayName, 'advertiser_alias', now)
+    if (linked) return { linked, candidate: 0 }
+  }
+
+  const alias = companyAlias(record.advertiser.name)
+  const targetAlias = companyAlias(target.displayName)
   if (alias && alias === targetAlias && target.publisherId) {
     await env.DB.prepare(`INSERT INTO ad_advertiser_aliases (advertiser_id,alias,normalized_alias,is_verified,created_at,updated_at)
       VALUES (?,?,?,1,?,?) ON CONFLICT(advertiser_id,normalized_alias) DO UPDATE SET is_verified=1,updated_at=excluded.updated_at`)
       .bind(advertiserId, record.advertiser.name, alias, now, now).run()
-    const apps = await all<{ id: number }>(env.DB, 'SELECT id FROM apps WHERE publisher_id=?', target.publisherId)
-    for (const app of apps) await env.DB.prepare(`INSERT OR IGNORE INTO ad_app_links (ad_id,app_id,confidence,match_reason,created_at,updated_at)
-      VALUES (?,?,'strong','advertiser_alias',?,?)`).bind(adId, app.id, now, now).run()
-    if (apps.length) return { linked: apps.length, candidate: 0 }
+    const linked = await linkPublisherApps(env, adId, target.publisherId, target.displayName, 'advertiser_alias', now)
+    if (linked) return { linked, candidate: 0 }
   }
 
   await env.DB.prepare(`INSERT INTO ad_app_links (ad_id,candidate_name,confidence,match_reason,created_at,updated_at)
@@ -101,7 +128,8 @@ async function persistRecord(env: Env, target: CollectionTargetRow, record: AdCr
       currency=excluded.currency,last_collected_at=excluded.last_collected_at,raw_r2_key=excluded.raw_r2_key,updated_at=excluded.updated_at`)
     .bind(advertiserId, record.source, record.sourceAdId, record.sourceUrl, record.status, record.headline, record.body, record.callToAction,
       record.landingUrl, JSON.stringify(record.platforms), JSON.stringify(record.languages), record.startedAt, record.endedAt,
-      record.impressions?.min, record.impressions?.max, record.reach?.min, record.reach?.max, record.spend?.min, record.spend?.max,
+      record.impressions?.min ?? null, record.impressions?.max ?? null, record.reach?.min ?? null, record.reach?.max ?? null,
+      record.spend?.min ?? null, record.spend?.max ?? null,
       record.currency, now, now, rawKey, now, now).run()
   const ad = await first<{ id: number }>(env.DB, 'SELECT id FROM ads WHERE source=? AND source_ad_id=?', record.source, record.sourceAdId)
   if (!ad) throw new Error('AD_INSERT_FAILED')
@@ -113,17 +141,18 @@ async function persistRecord(env: Env, target: CollectionTargetRow, record: AdCr
   for (const [position, variant] of record.variants.entries()) {
     const sourceVariantId = variant.sourceVariantId ?? `${record.sourceAdId}:${position}`
     await env.DB.prepare(`INSERT INTO ad_creative_variants (ad_id,source_variant_id,format,headline,body,call_to_action,landing_url,position,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(ad_id,source_variant_id) DO UPDATE SET format=excluded.format,headline=excluded.headline,
+      VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(ad_id,source_variant_id) WHERE source_variant_id IS NOT NULL DO UPDATE SET format=excluded.format,headline=excluded.headline,
       body=excluded.body,call_to_action=excluded.call_to_action,landing_url=excluded.landing_url,position=excluded.position,updated_at=excluded.updated_at`)
       .bind(ad.id, sourceVariantId, variant.format, variant.headline, variant.body, variant.callToAction, variant.landingUrl, variant.position, now, now).run()
     const persisted = await first<{ id: number }>(env.DB, 'SELECT id FROM ad_creative_variants WHERE ad_id=? AND source_variant_id=?', ad.id, sourceVariantId)
     if (!persisted) continue
+    const mediaMessages: JobMessage[] = []
     for (const media of variant.media) {
       const mediaId = await stableId(`${persisted.id}:${media.sourceUrl}:${media.role}:${media.position}`)
-      const message: JobMessage = { v: 1, kind: 'creative.media', adId: ad.id, variantId: persisted.id, sourceUrl: media.sourceUrl,
-        mediaType: media.mediaType, role: media.role, position: media.position, taskId: `creative-media:${mediaId}` }
-      await env.CREATIVE_MEDIA.send(message, { contentType: 'json' })
+      mediaMessages.push({ v: 1, kind: 'creative.media', adId: ad.id, variantId: persisted.id, sourceUrl: media.sourceUrl,
+        mediaType: media.mediaType, role: media.role, position: media.position, taskId: `creative-media:${mediaId}` })
     }
+    if (mediaMessages.length) await env.CREATIVE_MEDIA.sendBatch(mediaMessages.map((body) => ({ body, contentType: 'json' as const })))
   }
   return { isNew: !existing, ...(await linkAd(env, ad.id, advertiserId, record, target)) }
 }
@@ -157,10 +186,12 @@ export async function persistCollection(env: Env, target: CollectionTargetRow, s
 
 export async function recordCollectionFailure(env: Env, targetId: number, source: AdSource, reason: string, error: unknown) {
   const now = nowIso(), message = error instanceof Error ? error.message : String(error)
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO ad_collection_runs (target_id,source,reason,status,error_message,started_at,completed_at,created_at,updated_at)
-      VALUES (?,?,?,'failed',?,?,?,?,?)`).bind(targetId, source, reason, message, now, now, now, now),
-    env.DB.prepare(`UPDATE ad_collection_targets SET status='failed',last_error=?,next_collect_at=datetime('now','+24 hours'),updated_at=? WHERE id=?`)
-      .bind(message, now, targetId),
-  ])
+  const updated = await env.DB.prepare(`UPDATE ad_collection_runs SET status='failed',error_message=?,completed_at=?,updated_at=?
+    WHERE id=(SELECT id FROM ad_collection_runs WHERE target_id=? AND source=? AND status='running' ORDER BY id DESC LIMIT 1)`)
+    .bind(message, now, now, targetId, source).run()
+  if ((updated.meta.changes ?? 0) === 0) await env.DB.prepare(`INSERT INTO ad_collection_runs
+    (target_id,source,reason,status,error_message,started_at,completed_at,created_at,updated_at)
+    VALUES (?,?,?,'failed',?,?,?,?,?)`).bind(targetId, source, reason, message, now, now, now, now).run()
+  await env.DB.prepare(`UPDATE ad_collection_targets SET status='failed',last_error=?,next_collect_at=datetime('now','+24 hours'),updated_at=? WHERE id=?`)
+    .bind(message, now, targetId).run()
 }

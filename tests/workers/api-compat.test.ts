@@ -213,10 +213,35 @@ describe('legacy /api/v1 behavior in workerd', () => {
       testEnv.DB.prepare("INSERT INTO ad_regions(ad_id,country_code,created_at) VALUES (?,'us',?)").bind(adId, now),
       testEnv.DB.prepare("INSERT INTO ad_app_links(ad_id,app_id,confidence,match_reason,created_at,updated_at) VALUES (?,?,'certain','store_id',?,?)").bind(adId, parentId, now, now),
     ])
+    const variantId = (await testEnv.DB.prepare("SELECT id FROM ad_creative_variants WHERE ad_id=? AND source_variant_id='variant-1'").bind(adId).first<{ id: number }>())!.id
+    const assetId = Number((await testEnv.DB.prepare(`INSERT INTO ad_assets
+      (sha256,r2_key,media_type,mime_type,byte_size,created_at,updated_at) VALUES (?,'assets/test','image','image/png',4,?,?) RETURNING id`)
+      .bind('a'.repeat(64), now, now).first<{ id: number }>())!.id)
+    await testEnv.DB.prepare("INSERT INTO ad_creative_assets(variant_id,asset_id,role,position,created_at) VALUES (?,?,'primary',0,?)").bind(variantId, assetId, now).run()
+    const newerAdId = Number((await testEnv.DB.prepare(`INSERT INTO ads
+      (advertiser_id,source,source_ad_id,status,headline,body,platforms,languages,started_at,first_collected_at,last_collected_at,created_at,updated_at)
+      VALUES (?,'meta','ad-without-media','active','Newer without media','Public copy','["facebook"]','["en"]','2099-01-01',?,?,?,?) RETURNING id`)
+      .bind(advertiserId, now, now, now, now).first<{ id: number }>())!.id)
+    await testEnv.DB.batch([
+      testEnv.DB.prepare("INSERT INTO ad_regions(ad_id,country_code,created_at) VALUES (?,'us',?)").bind(newerAdId, now),
+      testEnv.DB.prepare("INSERT INTO ad_app_links(ad_id,app_id,confidence,match_reason,created_at,updated_at) VALUES (?,?,'strong','advertiser_alias',?,?)").bind(newerAdId, parentId, now, now),
+    ])
+    const unrelatedAdId = Number((await testEnv.DB.prepare(`INSERT INTO ads
+      (source,source_ad_id,status,headline,platforms,languages,first_collected_at,last_collected_at,created_at,updated_at)
+      VALUES ('google','unrelated-ad','active','Unrelated advertiser','[]','[]',?,?,?,?) RETURNING id`)
+      .bind(now, now, now, now).first<{ id: number }>())!.id)
     const creatives = await call('/creatives?source=meta&country=us')
     expect(creatives.status).toBe(200)
-    expect(await creatives.json()).toMatchObject({ data: [{ id: adId, source: 'meta', headline: 'Install Parent', advertiser: { id: advertiserId } }], meta: { total: 1 } })
-    expect(await (await call('/apps/ios/com.example.parent/creatives')).json()).toMatchObject({ data: [{ id: adId }], meta: { total: 1 } })
-    expect((await call('/apps/ios/com.example.parent/creatives/sync', { method: 'POST' })).status).toBe(503)
+    expect(await creatives.json()).toMatchObject({
+      data: [
+        { id: adId, source: 'meta', headline: 'Install Parent', advertiser: { id: advertiserId }, preview: { url: `/api/v1/creative-assets/${'a'.repeat(64)}` } },
+        { id: newerAdId, headline: 'Newer without media', preview: null },
+      ],
+      meta: { total: 2 },
+    })
+    const appCreatives = await (await call('/apps/ios/com.example.parent/creatives')).json() as { data: Array<{ id: number }>; meta: { total: number } }
+    expect(appCreatives).toMatchObject({ data: [{ id: adId }, { id: newerAdId }], meta: { total: 2 } })
+    expect(appCreatives.data.some((creative) => creative.id === unrelatedAdId)).toBe(false)
+    expect((await call('/apps/ios/com.example.parent/creatives/sync', { method: 'POST' })).status).toBe(202)
   }, 30_000)
 })

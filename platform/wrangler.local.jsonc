@@ -1,0 +1,45 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "openapps-platform-local",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-04",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "openapps-payload-local",
+    "database_id": "a969e372-9451-41b9-8adc-fc1f3cb8cfe6",
+    "migrations_dir": "../migrations"
+  }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "00000000000000000000000000000001" }],
+  "r2_buckets": [
+    { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts-local" },
+    { "binding": "CREATIVES", "bucket_name": "openapps-creatives-local" },
+    { "binding": "PAYLOAD_MEDIA", "bucket_name": "openapps-payload-media-local" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "SYNC_TRACKED_IOS", "queue": "openapps-local-sync-tracked-ios" },
+      { "binding": "SYNC_TRACKED_ANDROID", "queue": "openapps-local-sync-tracked-android" },
+      { "binding": "SYNC_ON_DEMAND_IOS", "queue": "openapps-local-sync-on-demand-ios" },
+      { "binding": "SYNC_ON_DEMAND_ANDROID", "queue": "openapps-local-sync-on-demand-android" },
+      { "binding": "CHARTS_IOS", "queue": "openapps-local-charts-ios" },
+      { "binding": "CHARTS_ANDROID", "queue": "openapps-local-charts-android" },
+      { "binding": "RECONCILE", "queue": "openapps-local-reconcile" },
+      { "binding": "CREATIVE_DISCOVERY", "queue": "openapps-local-creative-discovery" },
+      { "binding": "CREATIVE_MEDIA", "queue": "openapps-local-creative-media" }
+    ]
+  },
+  "ratelimits": [
+    { "name": "AUTH_RATE_LIMITER", "namespace_id": "9001", "simple": { "limit": 50, "period": 60 } },
+    { "name": "API_RATE_LIMITER", "namespace_id": "9002", "simple": { "limit": 600, "period": 60 } }
+  ],
+  "vars": {
+    "APP_NAME": "OpenApps",
+    "APP_URL": "http://localhost:3000",
+    "ENVIRONMENT": "development",
+    "TRACKED_APP_REFRESH_HOURS": "24",
+    "CREATIVES_ENABLED": "false"
+  },
+  "observability": { "enabled": false }
+}

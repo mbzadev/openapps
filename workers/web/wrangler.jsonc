@@ -50,7 +50,7 @@
     "APP_URL": "https://apps.mbza.dev",
     "ENVIRONMENT": "production",
     "TRACKED_APP_REFRESH_HOURS": "24",
-    "CREATIVES_ENABLED": "false"
+    "CREATIVES_ENABLED": "true"
   },
   "observability": {
     "enabled": true,
