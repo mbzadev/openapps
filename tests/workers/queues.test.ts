@@ -5,10 +5,16 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { handleBatch } from '../../workers/jobs/src/index.js'
 import type { JobMessage } from '../../packages/core/src/messages.js'
 
+const launchBrowser = vi.hoisted(() => vi.fn())
+vi.mock('@cloudflare/puppeteer', () => ({ default: { launch: launchBrowser } }))
+
 const testEnv = env as typeof env & { TEST_MIGRATIONS: D1Migration[] }
 
 beforeAll(async () => applyD1Migrations(testEnv.DB, testEnv.TEST_MIGRATIONS))
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  launchBrowser.mockReset()
+})
 
 describe('at-least-once Queue delivery', () => {
   it('deduplicates repeated task ids before side effects', async () => {
@@ -54,6 +60,49 @@ describe('at-least-once Queue delivery', () => {
     expect((await getQueueResult(batch, ctx)).retryMessages).toHaveLength(1)
     expect(await testEnv.DB.prepare("SELECT id FROM trending_charts WHERE platform='ios' AND collection='top_free' AND country_code='us' AND snapshot_date='2026-08-04'").first()).toBeNull()
     expect(await testEnv.DB.prepare("SELECT status FROM sync_tasks WHERE task_id='empty-chart-task'").first()).toEqual({ status: 'pending' })
+  })
+
+  it('uses Browser Rendering when Apple blocks a category feed from Workers', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('blocked', { status: 403 })))
+    const goto = vi.fn()
+    const close = vi.fn()
+    launchBrowser.mockResolvedValue({
+      newPage: async () => ({
+        goto,
+        evaluate: async () => JSON.stringify({ feed: { entry: [{
+          id: { attributes: { 'im:id': '6448311069' } },
+          'im:name': { label: 'ChatGPT' },
+          'im:artist': { label: 'OpenAI' },
+          'im:image': [{ label: 'https://img/100x100.png' }],
+          category: { attributes: { label: 'Productivity', 'im:id': '6007' } },
+          'im:price': { attributes: { amount: '0', currency: 'USD' } },
+        }] } }),
+      }),
+      close,
+    })
+    const message: JobMessage = {
+      v: 1, kind: 'chart.sync', platform: 'ios', countryCode: 'us', collection: 'top_free',
+      categoryExternalId: '6007', snapshotDate: '2026-08-05', taskId: 'ios-category-browser-fallback',
+    }
+    const batch = createMessageBatch('openapps-charts-ios', [{
+      id: 'ios-category-browser-delivery', timestamp: new Date(), body: message, attempts: 1,
+    }])
+    const ctx = createExecutionContext()
+
+    await handleBatch(batch, testEnv)
+
+    expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['ios-category-browser-delivery'])
+    expect(launchBrowser).toHaveBeenCalledOnce()
+    expect(goto).toHaveBeenCalledWith(
+      'https://itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=100/genre=6007/json?cc=us',
+      { waitUntil: 'domcontentloaded', timeout: 30_000 },
+    )
+    expect(close).toHaveBeenCalledOnce()
+    expect(await testEnv.DB.prepare(`SELECT COUNT(*) AS count FROM trending_chart_entries tce
+      JOIN trending_charts tc ON tc.id=tce.trending_chart_id
+      JOIN store_categories sc ON sc.id=tc.category_id
+      WHERE tc.platform='ios' AND tc.collection='top_free' AND tc.country_code='us'
+        AND tc.snapshot_date='2026-08-05' AND sc.external_id='6007'`).first()).toEqual({ count: 1 })
   })
 
   it('does not refetch a chart snapshot that already exists for the tuple and date', async () => {

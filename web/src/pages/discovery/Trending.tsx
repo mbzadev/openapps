@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import PlatformSwitcher from '@/components/PlatformSwitcher'
 import CountrySelect from '@/components/CountrySelect'
-import { ArrowUp, ArrowDown, Minus, Smartphone, Clock, Zap, DollarSign, Trophy } from 'lucide-react'
+import { ArrowUp, ArrowDown, Minus, Smartphone, Clock, Zap, DollarSign, Trophy, Loader2 } from 'lucide-react'
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -64,17 +64,21 @@ export default function Trending() {
     type: 'app',
   })
 
-  const { data: chart, isPending, isFetching } = useGetCharts({
+  const { data: chart, isPending } = useGetCharts({
     platform: platform as GetChartsPlatform,
     collection: collection as GetChartsCollection,
     country_code: countryCode,
     ...(categoryId ? { category_id: Number(categoryId) } : {}),
+  }, {
+    query: {
+      // A missing chart is created asynchronously by the platform queue.
+      // Keep checking until the first snapshot arrives, then stop polling.
+      refetchInterval: (query) => query.state.data?.data?.length ? false : 3_000,
+      refetchIntervalInBackground: false,
+    },
   })
 
-  // Show skeleton on any refetch (initial + filter changes) because chart
-  // data changes meaning entirely when country/collection/category changes —
-  // keeping the previous rows on screen would be misleading.
-  const showLoading = isPending || isFetching
+  const showLoading = isPending
 
   return (
     <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
@@ -220,8 +224,12 @@ export default function Trending() {
         </div>
       ) : (
         <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-muted-foreground">
-            No chart data available. Charts are updated daily.
+          <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-muted-foreground" />
+          <p className="font-medium text-muted-foreground">
+            Preparing this chart…
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground/70">
+            Fresh {platform === 'ios' ? 'App Store' : 'Google Play'} data will appear automatically.
           </p>
         </div>
       )}

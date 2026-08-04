@@ -217,9 +217,14 @@ async function persistChartApp(env: Env, platform: Platform, countryCode: string
 
 async function chartWithBrowserFallback(env: Env, message: Extract<JobMessage, { kind: 'chart.sync' }>): Promise<ChartApp[]> {
   try {
-    return await scraperFor(message.platform).chart(message.collection, message.countryCode, 100, message.categoryExternalId)
+    const entries = await scraperFor(message.platform).chart(message.collection, message.countryCode, 100, message.categoryExternalId)
+    if (!entries.length) throw new Error('Native chart feed returned an empty response')
+    return entries
   } catch (nativeError) {
-    if (message.platform !== 'ios' || message.collection !== 'top_grossing') throw nativeError
+    // Apple serves category charts (and Top Grossing) from its legacy RSS
+    // endpoint. That endpoint regularly rejects Workers egress with a 403,
+    // while it remains accessible from Cloudflare Browser Rendering.
+    if (message.platform !== 'ios') throw nativeError
     log('warn', 'chart.browser_fallback', {
       platform: message.platform,
       collection: message.collection,
@@ -235,6 +240,7 @@ async function chartWithBrowserFallback(env: Env, message: Extract<JobMessage, {
       const text = await page.evaluate(() => (globalThis as unknown as {
         document: { body: { textContent: string | null } }
       }).document.body.textContent ?? '')
+      if (!text.trim()) throw new Error('Apple chart Browser Rendering returned an empty response')
       return parseAppleLegacyChart(JSON.parse(text) as never)
     } finally {
       await browser.close()

@@ -166,6 +166,23 @@ describe('store adapters', () => {
     expect(chart).toEqual([expect.objectContaining({ rank: 1, external_id: '6448311069', name: 'ChatGPT' })])
   })
 
+  it('requests every Apple category chart from the matching legacy genre feed', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ feed: { entry: [{
+      id: { attributes: { 'im:id': '6448311069' } },
+      'im:name': { label: 'ChatGPT' },
+      'im:artist': { label: 'OpenAI' },
+      'im:image': [{ label: 'https://img/100x100.png' }],
+      category: { attributes: { label: 'Productivity', 'im:id': '6007' } },
+      'im:price': { attributes: { amount: '0', currency: 'USD' } },
+    }] } })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const chart = await new AppleScraper().chart('top_free', 'us', 100, '6007')
+
+    expect(chart).toHaveLength(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=100/genre=6007/json?cc=us')
+  })
+
   it('normalizes Google Play JSON-LD', async () => {
     const html = `<html><script type="application/ld+json">${JSON.stringify({ '@type': 'SoftwareApplication', name: 'Example Android', author: { name: 'MBZA', url: '/store/apps/dev?id=mbza' }, applicationCategory: 'Tools', image: 'https://img', aggregateRating: { ratingValue: '4.5', ratingCount: '100' }, offers: { price: '0', priceCurrency: 'USD' }, description: 'Description' })}</script></html>`
     vi.stubGlobal('fetch', vi.fn(async () => new Response(html, { headers: { 'content-type': 'text/html' } })))
@@ -189,7 +206,7 @@ describe('store adapters', () => {
     const fetchMock = vi.fn(async () => new Response(response))
     vi.stubGlobal('fetch', fetchMock)
 
-    const chart = await new GooglePlayScraper().chart('top_grossing', 'us', 100)
+    const chart = await new GooglePlayScraper().chart('top_grossing', 'us', 100, 'PRODUCTIVITY')
 
     expect(chart).toEqual([expect.objectContaining({
       rank: 1, external_id: 'com.openai.chatgpt', name: 'ChatGPT', publisher_name: 'OpenAI',
@@ -197,5 +214,6 @@ describe('store adapters', () => {
     })])
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/_/PlayStoreUi/data/batchexecute')
     expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain('topgrossing')
+    expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain('PRODUCTIVITY')
   })
 })

@@ -696,7 +696,9 @@ app.get('/charts', async (c) => {
       'SELECT status,updated_at FROM sync_tasks WHERE task_id=?', taskId)
     const runningIsStale = queued?.status === 'running'
       && Date.parse(queued.updated_at) < Date.now() - 10 * 60_000
-    if (!queued || queued.status === 'failed' || runningIsStale) {
+    // A completed task without a snapshot is not a valid terminal state (for
+    // example after an older worker acknowledged an empty result). Requeue it.
+    if (!queued || queued.status === 'failed' || queued.status === 'completed' || runningIsStale) {
       const message: JobMessage = { v: 1, kind: 'chart.sync', platform, countryCode: country, collection,
         categoryExternalId: category.external_id, snapshotDate: today, taskId }
       await (platform === 'ios' ? c.env.CHARTS_IOS : c.env.CHARTS_ANDROID).send(message, { contentType: 'json' })
