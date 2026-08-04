@@ -73,6 +73,20 @@ describe('at-least-once Queue delivery', () => {
     expect(await testEnv.DB.prepare("SELECT COUNT(*) AS count FROM trending_charts WHERE platform='ios' AND collection='top_paid' AND country_code='us' AND snapshot_date='2026-08-04'").first()).toEqual({ count: 1 })
   })
 
+  it('acknowledges queued chart work for a country that is no longer active', async () => {
+    const fetchMock = vi.fn(async () => { throw new Error('should not fetch') })
+    vi.stubGlobal('fetch', fetchMock)
+    const message: JobMessage = { v: 1, kind: 'chart.sync', platform: 'ios', countryCode: 'af', collection: 'top_free', categoryExternalId: null, snapshotDate: '2026-08-04', taskId: 'inactive-country-chart' }
+    const batch = createMessageBatch('openapps-charts-ios', [{ id: 'inactive-country-chart-delivery', timestamp: new Date(), body: message, attempts: 1 }])
+    const ctx = createExecutionContext()
+
+    await handleBatch(batch, testEnv)
+
+    expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['inactive-country-chart-delivery'])
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(await testEnv.DB.prepare("SELECT status FROM sync_tasks WHERE task_id='inactive-country-chart'").first()).toEqual({ status: 'completed' })
+  })
+
   it('completes an on-demand sync after the primary storefront without a global fanout', async () => {
     const now = new Date().toISOString()
     const app = await testEnv.DB.prepare(`INSERT INTO apps
@@ -159,8 +173,9 @@ describe('at-least-once Queue delivery', () => {
     const ctx = createExecutionContext()
     await handleBatch(batch, bindings as never)
     expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['fanout-root-delivery'])
-    expect(dispatched.length).toBeGreaterThan(100)
     expect(dispatched.every((child) => child.kind === 'app.storefront')).toBe(true)
+    expect(new Set(dispatched.map((child) => child.kind === 'app.storefront' ? child.countryCode : null))).toHaveLength(30)
+    expect(dispatched.length).toBeLessThan(40)
     expect(new Set(dispatched.map((child) => child.taskId)).size).toBe(dispatched.length)
     const status = await testEnv.DB.prepare('SELECT status,current_step,progress_done,progress_total,job_id FROM sync_statuses WHERE app_id=?').bind(app!.id).first<{ status: string; current_step: string; progress_done: number; progress_total: number; job_id: string }>()
     expect(status).toMatchObject({ status: 'running', current_step: 'storefronts', progress_done: 1, progress_total: dispatched.length + 1, job_id: 'fanout-root' })

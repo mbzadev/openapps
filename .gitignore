@@ -51,6 +51,7 @@
 /packages/*/dist/
 /mcp/dist/
 /workers/*/dist
+**/.wrangler/
 /test-results/
 /playwright-report/
 

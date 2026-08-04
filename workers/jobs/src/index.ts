@@ -243,6 +243,17 @@ async function chartWithBrowserFallback(env: Env, message: Extract<JobMessage, {
 }
 
 async function syncChart(env: Env, message: Extract<JobMessage, { kind: 'chart.sync' }>) {
+  const activeColumn = message.platform === 'ios' ? 'is_active_ios' : 'is_active_android'
+  const activeCountry = await first<{ code: string }>(env.DB,
+    `SELECT code FROM countries WHERE code=? AND ${activeColumn}=1`, message.countryCode)
+  if (!activeCountry) {
+    log('info', 'chart.inactive_country', {
+      platform: message.platform,
+      countryCode: message.countryCode,
+      collection: message.collection,
+    })
+    return
+  }
   const quota = await limit(env, message.platform, 'chart')
   if (!quota.allowed) throw new Error(`RATE_LIMIT:${quota.retryAfterMs}`)
   const category = message.categoryExternalId

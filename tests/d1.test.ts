@@ -20,6 +20,8 @@ beforeEach(() => {
   db.exec(readFileSync(resolve(root, 'migrations/0002_seed.sql'), 'utf8'))
   db.exec(readFileSync(resolve(root, 'migrations/0003_drop_redundant_chart_entry_index.sql'), 'utf8'))
   db.exec(readFileSync(resolve(root, 'migrations/0004_dedupe_listing_changes.sql'), 'utf8'))
+  db.exec(readFileSync(resolve(root, 'migrations/0005_focus_active_markets.sql'), 'utf8'))
+  db.exec(readFileSync(resolve(root, 'migrations/0006_replace_ghana_with_india.sql'), 'utf8'))
 })
 afterEach(() => db.close())
 
@@ -81,5 +83,20 @@ describe('D1 schema and reference data', () => {
   it('does not recreate the removed standalone chart-entry app index', () => {
     const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='trending_chart_entries'").all().map((row) => row.name)
     expect(indexes).not.toContain('trending_chart_entries_app_idx')
+  })
+
+  it('focuses synchronization on the 30 selected monetization markets', () => {
+    const countries = db.prepare(`SELECT code,is_active_ios,is_active_android FROM countries
+      WHERE is_active_ios=1 OR is_active_android=1 ORDER BY priority DESC`).all() as Array<{
+        code: string
+        is_active_ios: number
+        is_active_android: number
+      }>
+    expect(countries.map(({ code }) => code)).toEqual([
+      'us', 'jp', 'cn', 'kr', 'gb', 'de', 'tw', 'ca', 'au', 'fr',
+      'br', 'sa', 'it', 'th', 'hk', 'es', 'nl', 'tr', 'ch', 'mx',
+      'pt', 'ae', 'za', 'ng', 'eg', 'ma', 'dz', 'ke', 'cd', 'in',
+    ])
+    expect(countries.find(({ code }) => code === 'cn')).toMatchObject({ is_active_ios: 1, is_active_android: 0 })
   })
 })
