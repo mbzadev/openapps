@@ -234,14 +234,34 @@ async function chartWithBrowserFallback(env: Env, message: Extract<JobMessage, {
     const browser = await puppeteer.launch(env.BROWSER)
     try {
       const page = await browser.newPage()
-      await page.goto(appleLegacyChartUrl(message.collection, message.countryCode, 100, message.categoryExternalId), {
-        waitUntil: 'domcontentloaded', timeout: 30_000,
-      })
-      const text = await page.evaluate(() => (globalThis as unknown as {
-        document: { body: { textContent: string | null } }
-      }).document.body.textContent ?? '')
-      if (!text.trim()) throw new Error('Apple chart Browser Rendering returned an empty response')
-      return parseAppleLegacyChart(JSON.parse(text) as never)
+      await page.setContent('<!doctype html><html><head></head><body></body></html>')
+      const callbackName = `openappsChart_${crypto.randomUUID().replaceAll('-', '')}`
+      const url = `${appleLegacyChartUrl(message.collection, message.countryCode, 100, message.categoryExternalId)}&callback=${callbackName}`
+      // Direct navigation to Apple's JSON response can stall Chromium as a
+      // download. Loading the same official feed as JSONP executes normally
+      // in Browser Rendering and gives us an explicit timeout/error path.
+      const payload = await page.evaluate((src, callback) => new Promise((resolve, reject) => {
+        const scope = globalThis as unknown as Record<string, unknown>
+        const browserDocument = (globalThis as unknown as {
+          document: {
+            createElement(tag: string): { src: string; onerror: () => void }
+            head: { appendChild(node: unknown): void }
+          }
+        }).document
+        const timer = setTimeout(() => reject(new Error('Apple chart JSONP timed out')), 15_000)
+        scope[callback] = (data: unknown) => {
+          clearTimeout(timer)
+          resolve(data)
+        }
+        const script = browserDocument.createElement('script')
+        script.src = src
+        script.onerror = () => {
+          clearTimeout(timer)
+          reject(new Error('Apple chart JSONP failed to load'))
+        }
+        browserDocument.head.appendChild(script)
+      }), url, callbackName)
+      return parseAppleLegacyChart(payload as never)
     } finally {
       await browser.close()
     }

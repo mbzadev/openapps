@@ -64,19 +64,20 @@ describe('at-least-once Queue delivery', () => {
 
   it('uses Browser Rendering when Apple blocks a category feed from Workers', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('blocked', { status: 403 })))
-    const goto = vi.fn()
+    const setContent = vi.fn()
+    const evaluate = vi.fn(async () => ({ feed: { entry: [{
+      id: { attributes: { 'im:id': '6448311069' } },
+      'im:name': { label: 'ChatGPT' },
+      'im:artist': { label: 'OpenAI' },
+      'im:image': [{ label: 'https://img/100x100.png' }],
+      category: { attributes: { label: 'Productivity', 'im:id': '6007' } },
+      'im:price': { attributes: { amount: '0', currency: 'USD' } },
+    }] } }))
     const close = vi.fn()
     launchBrowser.mockResolvedValue({
       newPage: async () => ({
-        goto,
-        evaluate: async () => JSON.stringify({ feed: { entry: [{
-          id: { attributes: { 'im:id': '6448311069' } },
-          'im:name': { label: 'ChatGPT' },
-          'im:artist': { label: 'OpenAI' },
-          'im:image': [{ label: 'https://img/100x100.png' }],
-          category: { attributes: { label: 'Productivity', 'im:id': '6007' } },
-          'im:price': { attributes: { amount: '0', currency: 'USD' } },
-        }] } }),
+        setContent,
+        evaluate,
       }),
       close,
     })
@@ -93,10 +94,10 @@ describe('at-least-once Queue delivery', () => {
 
     expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['ios-category-browser-delivery'])
     expect(launchBrowser).toHaveBeenCalledOnce()
-    expect(goto).toHaveBeenCalledWith(
-      'https://itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=100/genre=6007/json?cc=us',
-      { waitUntil: 'domcontentloaded', timeout: 30_000 },
-    )
+    expect(setContent).toHaveBeenCalledWith('<!doctype html><html><head></head><body></body></html>')
+    expect(evaluate).toHaveBeenCalledOnce()
+    expect(evaluate.mock.calls[0]?.[1]).toMatch(/^https:\/\/itunes\.apple\.com\/WebObjects\/MZStoreServices\.woa\/ws\/RSS\/topfreeapplications\/limit=100\/genre=6007\/json\?cc=us&callback=openappsChart_[a-f0-9]+$/)
+    expect(evaluate.mock.calls[0]?.[2]).toMatch(/^openappsChart_[a-f0-9]+$/)
     expect(close).toHaveBeenCalledOnce()
     expect(await testEnv.DB.prepare(`SELECT COUNT(*) AS count FROM trending_chart_entries tce
       JOIN trending_charts tc ON tc.id=tce.trending_chart_id
