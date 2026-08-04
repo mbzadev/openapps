@@ -50,41 +50,5 @@
     "enabled": true,
     "logs": { "head_sampling_rate": 1 },
     "traces": { "enabled": true, "head_sampling_rate": 0.1 }
-  },
-  "env": {
-    "preview": {
-      "workers_dev": false,
-      "d1_databases": [
-        { "binding": "DB", "database_name": "openapps-preview", "database_id": "b4b15077-8a2a-4a14-aabf-31c7d2fb0e2e", "migrations_dir": "../../migrations" }
-      ],
-      "r2_buckets": [
-        { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts-preview" }
-      ],
-      "browser": { "binding": "BROWSER" },
-      "durable_objects": { "bindings": [{ "name": "STORE_RATE_LIMITER", "class_name": "StoreRateLimiter" }] },
-      "queues": {
-        "producers": [
-          { "binding": "SYNC_TRACKED_IOS", "queue": "openapps-sync-tracked-ios-preview" },
-          { "binding": "SYNC_TRACKED_ANDROID", "queue": "openapps-sync-tracked-android-preview" },
-          { "binding": "SYNC_ON_DEMAND_IOS", "queue": "openapps-sync-on-demand-ios-preview" },
-          { "binding": "SYNC_ON_DEMAND_ANDROID", "queue": "openapps-sync-on-demand-android-preview" },
-          { "binding": "CHARTS_IOS", "queue": "openapps-charts-ios-preview" },
-          { "binding": "CHARTS_ANDROID", "queue": "openapps-charts-android-preview" },
-          { "binding": "RECONCILE", "queue": "openapps-reconcile-preview" }
-        ],
-        "consumers": [
-          { "queue": "openapps-sync-tracked-ios-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
-          { "queue": "openapps-sync-tracked-android-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
-          { "queue": "openapps-sync-on-demand-ios-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
-          { "queue": "openapps-sync-on-demand-android-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
-          { "queue": "openapps-charts-ios-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
-          { "queue": "openapps-charts-android-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
-          { "queue": "openapps-reconcile-preview", "max_retries": 5, "dead_letter_queue": "openapps-dead-letter-preview" },
-          { "queue": "openapps-dead-letter-preview", "max_retries": 2 }
-        ]
-      },
-      "triggers": { "crons": [] },
-      "vars": { "ENVIRONMENT": "preview" }
-    }
   }
 }
