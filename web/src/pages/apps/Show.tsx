@@ -232,6 +232,7 @@ export default function AppsShow() {
   const versions = detail.versions ?? []
   const listings = detail.listings ?? []
   const hasListingsOrVersions = listings.length > 0 || versions.length > 0
+  const shouldBlockForSync = isSyncing && !hasListingsOrVersions
   // Backend returns versions newest-first (App::versions() relation orders by id desc).
   const latestVersion = versions[0]
   const activeVersion: VersionResource | undefined =
@@ -340,12 +341,12 @@ export default function AppsShow() {
       </div>
 
       {/* Sync overlay: blocks tabs while queued/processing */}
-      {isSyncing && syncStatus && (
+      {shouldBlockForSync && syncStatus && (
         <SyncingOverlay status={syncStatus} />
       )}
 
-      {/* Tabs — only show when app has data AND no active sync */}
-      {!isSyncing && hasListingsOrVersions && (
+      {/* Existing data stays usable while a background refresh is running. */}
+      {!shouldBlockForSync && hasListingsOrVersions && (
         <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
           {/* Mobile/tablet: track + tab bar + store (last) */}
           <div className="flex flex-col gap-2 lg:hidden">
