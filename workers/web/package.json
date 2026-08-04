@@ -10,7 +10,7 @@
     "build": "wrangler deploy --env=\"\" --dry-run --outdir dist",
     "typecheck": "tsc -p tsconfig.json",
     "cf:types": "wrangler types src/worker-configuration.d.ts --include-runtime false",
-    "cf:types:check": "wrangler types src/worker-configuration.d.ts --include-runtime false --check",
+    "cf:types:check": "node ../../scripts/check-wrangler-bindings.mjs wrangler.jsonc src/worker-configuration.d.ts",
     "deploy:dry": "wrangler deploy --env=\"\" --dry-run",
     "deploy": "wrangler deploy --env=\"\""
   },
