@@ -169,6 +169,10 @@ async function syncApp(env: Env, message: Extract<JobMessage, { kind: 'app.sync'
 }
 
 async function syncStorefront(env: Env, message: Extract<JobMessage, { kind: 'app.storefront' }>) {
+  // Reconciliation only guarantees that the primary storefront becomes
+  // usable again. Ignore legacy children produced by older deployments so a
+  // stalled status cannot fan back out across every country.
+  if (message.source === 'reconcile') return
   const app = await first<{ external_id: string }>(env.DB, 'SELECT external_id FROM apps WHERE id=?', message.appId)
   if (!app) throw new Error(`App ${message.appId} no longer exists`)
   const quota = await limit(env, message.platform, 'storefront')

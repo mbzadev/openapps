@@ -119,6 +119,21 @@ describe('at-least-once Queue delivery', () => {
     expect(await testEnv.DB.prepare('SELECT status,progress_done,progress_total FROM sync_statuses WHERE app_id=?').bind(app!.id).first()).toEqual({ status: 'completed', progress_done: 1, progress_total: 1 })
   })
 
+  it('acknowledges storefront children left by an older reconciliation without store traffic', async () => {
+    const fetchMock = vi.fn(async () => { throw new Error('should not fetch') })
+    vi.stubGlobal('fetch', fetchMock)
+    const message: JobMessage = { v: 1, kind: 'app.storefront', platform: 'ios', appId: 999_998,
+      countryCode: 'fr', locale: 'fr-FR', source: 'reconcile', taskId: 'legacy-reconcile:storefront:fr:fr-FR' }
+    const batch = createMessageBatch('openapps-sync-tracked-ios', [{ id: 'legacy-reconcile-child', timestamp: new Date(), body: message, attempts: 1 }])
+    const ctx = createExecutionContext()
+
+    await handleBatch(batch, testEnv)
+
+    expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['legacy-reconcile-child'])
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(await testEnv.DB.prepare("SELECT status FROM sync_tasks WHERE task_id='legacy-reconcile:storefront:fr:fr-FR'").first()).toEqual({ status: 'completed' })
+  })
+
   it('fans a scheduled app sync out into idempotent country/locale storefront messages', async () => {
     const now = new Date().toISOString()
     const app = await testEnv.DB.prepare(`INSERT INTO apps
