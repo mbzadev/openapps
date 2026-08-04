@@ -26,7 +26,8 @@ const cloudflare = isCLI || !isProduction
 type RuntimeEnv = CloudflareEnv & { PAYLOAD_SECRET?: string }
 const runtimeEnv = cloudflare.env as RuntimeEnv
 const appURL = runtimeEnv.APP_URL || process.env.APP_URL || 'http://localhost:3000'
-const payloadSecret = runtimeEnv.PAYLOAD_SECRET || process.env.PAYLOAD_SECRET
+const buildOnlySecret = process.env.OPENAPPS_BUILD_PHASE === '1' ? 'openapps-build-only-not-runtime' : undefined
+const payloadSecret = runtimeEnv.PAYLOAD_SECRET || process.env.PAYLOAD_SECRET || buildOnlySecret
 
 if (!payloadSecret) throw new Error('PAYLOAD_SECRET is required')
 

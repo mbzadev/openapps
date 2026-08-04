@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run build:legacy && cross-env NODE_OPTIONS=--no-deprecation next build --webpack",
+    "build": "npm run build:legacy && cross-env OPENAPPS_BUILD_PHASE=1 NODE_OPTIONS=--no-deprecation next build --webpack",
     "build:cloudflare": "cross-env NODE_OPTIONS=--no-deprecation opennextjs-cloudflare build",
     "build:legacy": "npm run build -w frontend && npm run sync-docs -w @openapps/docs-site && npm run build -w @openapps/docs-site && node scripts/sync-legacy-assets.mjs",
     "dev": "npm run build:legacy && cross-env CLOUDFLARE_CONFIG_PATH=wrangler.local.jsonc NODE_OPTIONS=--no-deprecation next dev",
