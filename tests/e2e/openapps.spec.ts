@@ -56,6 +56,20 @@ test('account, token, folder, discovery, tracking, analytics and cleanup journey
     await page.goto('/competitors')
     await expect(page).toHaveURL(/\/competitors/)
 
+    await page.goto('/creatives')
+    await expect(page.getByRole('heading', { name: 'Ad Creative Library' })).toBeVisible()
+    await page.getByLabel('Source').selectOption('meta')
+    await page.getByLabel('Format').selectOption('video')
+    await expect(page.getByPlaceholder('Search ads or advertisers')).toBeVisible()
+    expect((await api.get('/api/v1/creatives?source=meta&format=video')).status()).toBe(200)
+
+    await page.goto(`/apps/ios/${externalId}?tab=creatives`)
+    await expect(page.getByPlaceholder('Search ads or advertisers')).toBeVisible()
+    const appCreativeResponse = await api.get(`/api/v1/apps/ios/${externalId}/creatives`)
+    expect(appCreativeResponse.status()).toBe(200)
+    const refresh = await api.post(`/api/v1/apps/ios/${externalId}/creatives/sync`, { data: {} })
+    expect([202, 503]).toContain(refresh.status())
+
     const cleanup = await api.delete('/api/v1/account/profile', { data: { password } })
     expect(cleanup.status()).toBe(204)
     registered = false

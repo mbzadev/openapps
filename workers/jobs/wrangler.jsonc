@@ -3,23 +3,26 @@
   "name": "openapps-jobs",
   "account_id": "8706f1b6760214ae04dad8c10116be36",
   "main": "src/index.ts",
-  "compatibility_date": "2026-08-03",
+  "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "d1_databases": [
     { "binding": "DB", "database_name": "openapps-production", "database_id": "12426f60-ca41-4e4f-a975-718025f1dbfa", "migrations_dir": "../../migrations" }
   ],
   "r2_buckets": [
-    { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts" }
+    { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts" },
+    { "binding": "CREATIVES", "bucket_name": "openapps-creatives" }
   ],
   "browser": { "binding": "BROWSER" },
   "durable_objects": {
     "bindings": [
-      { "name": "STORE_RATE_LIMITER", "class_name": "StoreRateLimiter" }
+      { "name": "STORE_RATE_LIMITER", "class_name": "StoreRateLimiter" },
+      { "name": "CREATIVE_SOURCE_LIMITER", "class_name": "CreativeSourceLimiter" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["StoreRateLimiter"] }
+    { "tag": "v1", "new_sqlite_classes": ["StoreRateLimiter"] },
+    { "tag": "v2", "new_sqlite_classes": ["CreativeSourceLimiter"] }
   ],
   "queues": {
     "producers": [
@@ -29,7 +32,9 @@
       { "binding": "SYNC_ON_DEMAND_ANDROID", "queue": "openapps-sync-on-demand-android" },
       { "binding": "CHARTS_IOS", "queue": "openapps-charts-ios" },
       { "binding": "CHARTS_ANDROID", "queue": "openapps-charts-android" },
-      { "binding": "RECONCILE", "queue": "openapps-reconcile" }
+      { "binding": "RECONCILE", "queue": "openapps-reconcile" },
+      { "binding": "CREATIVE_DISCOVERY", "queue": "openapps-creative-discovery" },
+      { "binding": "CREATIVE_MEDIA", "queue": "openapps-creative-media" }
     ],
     "consumers": [
       { "queue": "openapps-sync-tracked-ios", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
@@ -39,13 +44,15 @@
       { "queue": "openapps-charts-ios", "max_batch_size": 5, "max_batch_timeout": 10, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
       { "queue": "openapps-charts-android", "max_batch_size": 5, "max_batch_timeout": 10, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
       { "queue": "openapps-reconcile", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-creative-discovery", "max_batch_size": 1, "max_batch_timeout": 5, "max_retries": 4, "dead_letter_queue": "openapps-dead-letter" },
+      { "queue": "openapps-creative-media", "max_batch_size": 2, "max_batch_timeout": 5, "max_retries": 4, "dead_letter_queue": "openapps-dead-letter" },
       { "queue": "openapps-dead-letter", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 2 }
     ]
   },
   "triggers": {
-    "crons": ["*/20 * * * *", "*/15 * * * *", "30 0 * * *", "0 4 * * *"]
+    "crons": ["*/20 * * * *", "*/15 * * * *", "10 * * * *", "30 0 * * *", "0 4 * * *"]
   },
-  "vars": { "ENVIRONMENT": "production" },
+  "vars": { "ENVIRONMENT": "production", "CREATIVES_ENABLED": "false", "META_GRAPH_API_VERSION": "v23.0" },
   "observability": {
     "enabled": true,
     "logs": { "head_sampling_rate": 1 },

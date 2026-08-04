@@ -87,6 +87,10 @@ import type {
   ImportPublisherApps401,
   ImportPublisherApps422,
   ImportPublisherAppsBody,
+  ListAdvertiserCreatives200,
+  ListAdvertiserCreatives401,
+  ListAdvertiserCreatives422,
+  ListAdvertiserCreativesParams,
   ListAllCompetitors200Item,
   ListAllCompetitors401,
   ListAllCompetitors422,
@@ -94,6 +98,10 @@ import type {
   ListApiTokens200Item,
   ListApiTokens401,
   ListApiTokens422,
+  ListAppCreatives200,
+  ListAppCreatives401,
+  ListAppCreatives422,
+  ListAppCreativesParams,
   ListAppRankings200Item,
   ListAppRankings401,
   ListAppRankings422,
@@ -108,6 +116,10 @@ import type {
   ListCountries200Item,
   ListCountries401,
   ListCountries422,
+  ListCreatives200,
+  ListCreatives401,
+  ListCreatives422,
+  ListCreativesParams,
   ListFolders200Item,
   ListFolders401,
   ListFolders422,
@@ -151,6 +163,9 @@ import type {
   ShowApp200,
   ShowApp401,
   ShowApp422,
+  ShowCreative200,
+  ShowCreative401,
+  ShowCreative422,
   ShowProfile200,
   ShowProfile401,
   ShowProfile422,
@@ -173,6 +188,9 @@ import type {
   SyncApp200,
   SyncApp401,
   SyncApp422,
+  SyncAppCreatives202,
+  SyncAppCreatives401,
+  SyncAppCreatives422,
   TrackApp401,
   TrackApp422,
   UntrackApp401,
@@ -4290,3 +4308,457 @@ export const useImportPublisherApps = <TError = ImportPublisherApps401 | ImportP
       > => {
       return useMutation(getImportPublisherAppsMutationOptions(options), queryClient);
     }
+
+/**
+ * @summary Search public ad creatives
+ */
+export const listCreatives = (
+    params?: ListCreativesParams,
+ options?: SecondParameter<typeof orvalMutator>,signal?: AbortSignal
+) => {
+
+
+      return orvalMutator<ListCreatives200>(
+      {url: `/creatives`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getListCreativesQueryKey = (params?: ListCreativesParams,) => {
+    return [
+    `/creatives`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCreativesQueryOptions = <TData = Awaited<ReturnType<typeof listCreatives>>, TError = ListCreatives401 | ListCreatives422>(params?: ListCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCreativesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCreatives>>> = ({ signal }) => listCreatives(params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCreatives>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListCreativesQueryResult = NonNullable<Awaited<ReturnType<typeof listCreatives>>>
+export type ListCreativesQueryError = ListCreatives401 | ListCreatives422
+
+
+export function useListCreatives<TData = Awaited<ReturnType<typeof listCreatives>>, TError = ListCreatives401 | ListCreatives422>(
+ params: undefined |  ListCreativesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listCreatives>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listCreatives>>,
+          TError,
+          Awaited<ReturnType<typeof listCreatives>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListCreatives<TData = Awaited<ReturnType<typeof listCreatives>>, TError = ListCreatives401 | ListCreatives422>(
+ params?: ListCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listCreatives>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listCreatives>>,
+          TError,
+          Awaited<ReturnType<typeof listCreatives>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListCreatives<TData = Awaited<ReturnType<typeof listCreatives>>, TError = ListCreatives401 | ListCreatives422>(
+ params?: ListCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Search public ad creatives
+ */
+
+export function useListCreatives<TData = Awaited<ReturnType<typeof listCreatives>>, TError = ListCreatives401 | ListCreatives422>(
+ params?: ListCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListCreativesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+/**
+ * @summary Creative detail
+ */
+export const showCreative = (
+    id: string,
+ options?: SecondParameter<typeof orvalMutator>,signal?: AbortSignal
+) => {
+
+
+      return orvalMutator<ShowCreative200>(
+      {url: `/creatives/${id}`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getShowCreativeQueryKey = (id: string,) => {
+    return [
+    `/creatives/${id}`
+    ] as const;
+    }
+
+
+export const getShowCreativeQueryOptions = <TData = Awaited<ReturnType<typeof showCreative>>, TError = ShowCreative401 | ShowCreative422>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof showCreative>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getShowCreativeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof showCreative>>> = ({ signal }) => showCreative(id, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof showCreative>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ShowCreativeQueryResult = NonNullable<Awaited<ReturnType<typeof showCreative>>>
+export type ShowCreativeQueryError = ShowCreative401 | ShowCreative422
+
+
+export function useShowCreative<TData = Awaited<ReturnType<typeof showCreative>>, TError = ShowCreative401 | ShowCreative422>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof showCreative>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof showCreative>>,
+          TError,
+          Awaited<ReturnType<typeof showCreative>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShowCreative<TData = Awaited<ReturnType<typeof showCreative>>, TError = ShowCreative401 | ShowCreative422>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof showCreative>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof showCreative>>,
+          TError,
+          Awaited<ReturnType<typeof showCreative>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShowCreative<TData = Awaited<ReturnType<typeof showCreative>>, TError = ShowCreative401 | ShowCreative422>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof showCreative>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Creative detail
+ */
+
+export function useShowCreative<TData = Awaited<ReturnType<typeof showCreative>>, TError = ShowCreative401 | ShowCreative422>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof showCreative>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getShowCreativeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+/**
+ * @summary App creatives
+ */
+export const listAppCreatives = (
+    platform: 'ios' | 'android',
+    externalId: string,
+    params?: ListAppCreativesParams,
+ options?: SecondParameter<typeof orvalMutator>,signal?: AbortSignal
+) => {
+
+
+      return orvalMutator<ListAppCreatives200>(
+      {url: `/apps/${platform}/${externalId}/creatives`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getListAppCreativesQueryKey = (platform: 'ios' | 'android',
+    externalId: string,
+    params?: ListAppCreativesParams,) => {
+    return [
+    `/apps/${platform}/${externalId}/creatives`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAppCreativesQueryOptions = <TData = Awaited<ReturnType<typeof listAppCreatives>>, TError = ListAppCreatives401 | ListAppCreatives422>(platform: 'ios' | 'android',
+    externalId: string,
+    params?: ListAppCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAppCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAppCreativesQueryKey(platform,externalId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAppCreatives>>> = ({ signal }) => listAppCreatives(platform,externalId,params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: platform !== null && platform !== undefined && externalId !== null && externalId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAppCreatives>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListAppCreativesQueryResult = NonNullable<Awaited<ReturnType<typeof listAppCreatives>>>
+export type ListAppCreativesQueryError = ListAppCreatives401 | ListAppCreatives422
+
+
+export function useListAppCreatives<TData = Awaited<ReturnType<typeof listAppCreatives>>, TError = ListAppCreatives401 | ListAppCreatives422>(
+ platform: 'ios' | 'android',
+    externalId: string,
+    params: undefined |  ListAppCreativesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAppCreatives>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAppCreatives>>,
+          TError,
+          Awaited<ReturnType<typeof listAppCreatives>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAppCreatives<TData = Awaited<ReturnType<typeof listAppCreatives>>, TError = ListAppCreatives401 | ListAppCreatives422>(
+ platform: 'ios' | 'android',
+    externalId: string,
+    params?: ListAppCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAppCreatives>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAppCreatives>>,
+          TError,
+          Awaited<ReturnType<typeof listAppCreatives>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAppCreatives<TData = Awaited<ReturnType<typeof listAppCreatives>>, TError = ListAppCreatives401 | ListAppCreatives422>(
+ platform: 'ios' | 'android',
+    externalId: string,
+    params?: ListAppCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAppCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary App creatives
+ */
+
+export function useListAppCreatives<TData = Awaited<ReturnType<typeof listAppCreatives>>, TError = ListAppCreatives401 | ListAppCreatives422>(
+ platform: 'ios' | 'android',
+    externalId: string,
+    params?: ListAppCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAppCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListAppCreativesQueryOptions(platform,externalId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+/**
+ * @summary Queue creative refresh
+ */
+export const syncAppCreatives = (
+    platform: 'ios' | 'android',
+    externalId: string,
+ options?: SecondParameter<typeof orvalMutator>,signal?: AbortSignal
+) => {
+
+
+      return orvalMutator<SyncAppCreatives202>(
+      {url: `/apps/${platform}/${externalId}/creatives/sync`, method: 'POST', signal
+    },
+      options);
+    }
+
+
+
+
+export const getSyncAppCreativesMutationOptions = <TError = SyncAppCreatives401 | SyncAppCreatives422,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncAppCreatives>>, TError,{platform: 'ios' | 'android';externalId: string}, TContext>, request?: SecondParameter<typeof orvalMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncAppCreatives>>, TError,{platform: 'ios' | 'android';externalId: string}, TContext> => {
+
+const mutationKey = ['syncAppCreatives'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncAppCreatives>>, {platform: 'ios' | 'android';externalId: string}> = (props) => {
+          const {platform,externalId} = props ?? {};
+
+          return  syncAppCreatives(platform,externalId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncAppCreativesMutationResult = NonNullable<Awaited<ReturnType<typeof syncAppCreatives>>>
+
+    export type SyncAppCreativesMutationError = SyncAppCreatives401 | SyncAppCreatives422
+
+    /**
+ * @summary Queue creative refresh
+ */
+export const useSyncAppCreatives = <TError = SyncAppCreatives401 | SyncAppCreatives422,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncAppCreatives>>, TError,{platform: 'ios' | 'android';externalId: string}, TContext>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof syncAppCreatives>>,
+        TError,
+        {platform: 'ios' | 'android';externalId: string},
+        TContext
+      > => {
+      return useMutation(getSyncAppCreativesMutationOptions(options), queryClient);
+    }
+
+/**
+ * @summary Advertiser creatives
+ */
+export const listAdvertiserCreatives = (
+    id: string,
+    params?: ListAdvertiserCreativesParams,
+ options?: SecondParameter<typeof orvalMutator>,signal?: AbortSignal
+) => {
+
+
+      return orvalMutator<ListAdvertiserCreatives200>(
+      {url: `/ad-advertisers/${id}/creatives`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+
+
+
+
+export const getListAdvertiserCreativesQueryKey = (id: string,
+    params?: ListAdvertiserCreativesParams,) => {
+    return [
+    `/ad-advertisers/${id}/creatives`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAdvertiserCreativesQueryOptions = <TData = Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError = ListAdvertiserCreatives401 | ListAdvertiserCreatives422>(id: string,
+    params?: ListAdvertiserCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdvertiserCreativesQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdvertiserCreatives>>> = ({ signal }) => listAdvertiserCreatives(id,params, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListAdvertiserCreativesQueryResult = NonNullable<Awaited<ReturnType<typeof listAdvertiserCreatives>>>
+export type ListAdvertiserCreativesQueryError = ListAdvertiserCreatives401 | ListAdvertiserCreatives422
+
+
+export function useListAdvertiserCreatives<TData = Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError = ListAdvertiserCreatives401 | ListAdvertiserCreatives422>(
+ id: string,
+    params: undefined |  ListAdvertiserCreativesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdvertiserCreatives>>,
+          TError,
+          Awaited<ReturnType<typeof listAdvertiserCreatives>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAdvertiserCreatives<TData = Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError = ListAdvertiserCreatives401 | ListAdvertiserCreatives422>(
+ id: string,
+    params?: ListAdvertiserCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdvertiserCreatives>>,
+          TError,
+          Awaited<ReturnType<typeof listAdvertiserCreatives>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAdvertiserCreatives<TData = Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError = ListAdvertiserCreatives401 | ListAdvertiserCreatives422>(
+ id: string,
+    params?: ListAdvertiserCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Advertiser creatives
+ */
+
+export function useListAdvertiserCreatives<TData = Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError = ListAdvertiserCreatives401 | ListAdvertiserCreatives422>(
+ id: string,
+    params?: ListAdvertiserCreativesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdvertiserCreatives>>, TError, TData>>, request?: SecondParameter<typeof orvalMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListAdvertiserCreativesQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

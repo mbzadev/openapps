@@ -9,4 +9,11 @@ export type Env = Cloudflare.Env & {
   CHARTS_IOS: Queue<JobMessage>
   CHARTS_ANDROID: Queue<JobMessage>
   RECONCILE: Queue<JobMessage>
+  CREATIVE_DISCOVERY: Queue<JobMessage>
+  CREATIVE_MEDIA: Queue<JobMessage>
+  CREATIVES_ENABLED?: string
+  META_GRAPH_API_VERSION?: string
+  META_AD_LIBRARY_ACCESS_TOKEN?: string
+  TIKTOK_CLIENT_KEY?: string
+  TIKTOK_CLIENT_SECRET?: string
 }

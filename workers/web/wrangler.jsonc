@@ -3,7 +3,7 @@
   "name": "openapps-web",
   "account_id": "8706f1b6760214ae04dad8c10116be36",
   "main": "src/index.ts",
-  "compatibility_date": "2026-08-03",
+  "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "routes": [
     { "pattern": "apps.mbza.dev", "custom_domain": true }
@@ -26,7 +26,8 @@
     { "binding": "OAUTH_KV", "id": "ceccf2618dd746d79d2db2ebc888e7e7" }
   ],
   "r2_buckets": [
-    { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts" }
+    { "binding": "ARTIFACTS", "bucket_name": "openapps-artifacts" },
+    { "binding": "CREATIVES", "bucket_name": "openapps-creatives" }
   ],
   "queues": {
     "producers": [
@@ -36,7 +37,8 @@
       { "binding": "SYNC_ON_DEMAND_ANDROID", "queue": "openapps-sync-on-demand-android" },
       { "binding": "CHARTS_IOS", "queue": "openapps-charts-ios" },
       { "binding": "CHARTS_ANDROID", "queue": "openapps-charts-android" },
-      { "binding": "RECONCILE", "queue": "openapps-reconcile" }
+      { "binding": "RECONCILE", "queue": "openapps-reconcile" },
+      { "binding": "CREATIVE_DISCOVERY", "queue": "openapps-creative-discovery" }
     ]
   },
   "ratelimits": [
@@ -47,7 +49,8 @@
     "APP_NAME": "OpenApps",
     "APP_URL": "https://apps.mbza.dev",
     "ENVIRONMENT": "production",
-    "TRACKED_APP_REFRESH_HOURS": "24"
+    "TRACKED_APP_REFRESH_HOURS": "24",
+    "CREATIVES_ENABLED": "false"
   },
   "observability": {
     "enabled": true,

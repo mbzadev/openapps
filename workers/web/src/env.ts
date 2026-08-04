@@ -11,6 +11,8 @@ export type Env = Cloudflare.Env & {
   CHARTS_IOS: Queue<JobMessage>
   CHARTS_ANDROID: Queue<JobMessage>
   RECONCILE: Queue<JobMessage>
+  CREATIVE_DISCOVERY: Queue<JobMessage>
+  CREATIVES_ENABLED?: string
 }
 
 export type Variables = { auth: AuthContext; db: Database }

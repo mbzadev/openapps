@@ -200,5 +200,23 @@ describe('legacy /api/v1 behavior in workerd', () => {
     expect(await (await call('/publishers')).json()).toMatchObject([{ id: publisherId, apps_count: 1 }])
     expect(await (await call('/publishers/ios/pub-1')).json()).toMatchObject({ publisher: { id: publisherId, name: 'Publisher One' }, apps: [{ id: parentId }] })
     expect((await call('/publishers/ios/pub-1/import', { method: 'POST', body: JSON.stringify({ external_ids: ['com.example.parent'] }) })).status).toBe(204)
+
+    const advertiserId = Number((await testEnv.DB.prepare(`INSERT INTO ad_advertisers
+      (source,source_advertiser_id,name,domain,created_at,updated_at) VALUES ('meta','page-1','Publisher One','publisher.test',?,?) RETURNING id`)
+      .bind(now, now).first<{ id: number }>())!.id)
+    const adId = Number((await testEnv.DB.prepare(`INSERT INTO ads
+      (advertiser_id,source,source_ad_id,status,headline,body,platforms,languages,first_collected_at,last_collected_at,created_at,updated_at)
+      VALUES (?,'meta','ad-1','active','Install Parent','Public copy','["facebook"]','["en"]',?,?,?,?) RETURNING id`)
+      .bind(advertiserId, now, now, now, now).first<{ id: number }>())!.id)
+    await testEnv.DB.batch([
+      testEnv.DB.prepare("INSERT INTO ad_creative_variants(ad_id,source_variant_id,format,position,created_at,updated_at) VALUES (?,'variant-1','image',0,?,?)").bind(adId, now, now),
+      testEnv.DB.prepare("INSERT INTO ad_regions(ad_id,country_code,created_at) VALUES (?,'us',?)").bind(adId, now),
+      testEnv.DB.prepare("INSERT INTO ad_app_links(ad_id,app_id,confidence,match_reason,created_at,updated_at) VALUES (?,?,'certain','store_id',?,?)").bind(adId, parentId, now, now),
+    ])
+    const creatives = await call('/creatives?source=meta&country=us')
+    expect(creatives.status).toBe(200)
+    expect(await creatives.json()).toMatchObject({ data: [{ id: adId, source: 'meta', headline: 'Install Parent', advertiser: { id: advertiserId } }], meta: { total: 1 } })
+    expect(await (await call('/apps/ios/com.example.parent/creatives')).json()).toMatchObject({ data: [{ id: adId }], meta: { total: 1 } })
+    expect((await call('/apps/ios/com.example.parent/creatives/sync', { method: 'POST' })).status).toBe(503)
   }, 30_000)
 })

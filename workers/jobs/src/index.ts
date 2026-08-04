@@ -4,9 +4,12 @@ import { all, chartTaskId, first, jobMessageSchema, log, nowIso, type JobMessage
 import { createDatabase, syncTasks } from '@openapps/db'
 import { appleLegacyChartUrl, detectLocaleChanges, googlePlayAppUrl, parseAppleLegacyChart, parseGooglePlayHtml, persistStoreApp, scraperFor, type ChartApp, type StoreApp } from '@openapps/scrapers'
 import { StoreRateLimiter } from './rate-limiter.js'
+import { CreativeSourceLimiter } from './creative-source-limiter.js'
+import { archiveCreativeMedia } from './creatives/media.js'
+import { dispatchCreativeCollections, runCreativeDiscovery } from './creatives/runner.js'
 import type { Env } from './env.js'
 
-export { StoreRateLimiter }
+export { StoreRateLimiter, CreativeSourceLimiter }
 
 function task(message: JobMessage, status: string, error?: string) {
   return { id: message.taskId, status, error }
@@ -388,6 +391,12 @@ export async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
       else if (parsed.data.kind === 'app.storefront') await syncStorefront(env, parsed.data)
       else if (parsed.data.kind === 'chart.sync') await syncChart(env, parsed.data)
       else if (parsed.data.kind === 'sync.reconcile') await reconcile(env, parsed.data)
+      else if (parsed.data.kind === 'creative.discover') await runCreativeDiscovery(env, parsed.data)
+      else if (parsed.data.kind === 'creative.media') {
+        const archived = await archiveCreativeMedia(env, parsed.data)
+        log('info', 'creative.media.archived', { adId: parsed.data.adId, variantId: parsed.data.variantId,
+          assetId: archived.assetId, bytes: archived.byteSize, sha256: archived.sha256 })
+      }
       else await archiveFailure(env, parsed.data.original, parsed.data.error)
       await completeTask(env, parsed.data.taskId)
       if (parsed.data.kind === 'app.storefront') await recomputeStorefrontProgress(env, parsed.data)
@@ -395,7 +404,10 @@ export async function handleBatch(batch: MessageBatch<unknown>, env: Env) {
       item.ack()
     } catch (error) {
       log('error', 'queue.failed', task(parsed.data, 'failed', error instanceof Error ? error.message : String(error)))
-      const retryMs = error instanceof Error && error.message.startsWith('RATE_LIMIT:') ? Number(error.message.slice(11)) : 2 ** Math.min(item.attempts, 8) * 1000
+      const creativeRetrySeconds = [900, 3600, 21_600, 86_400][Math.min(Math.max(item.attempts - 1, 0), 3)]!
+      const retryMs = error instanceof Error && error.message.startsWith('RATE_LIMIT:') ? Number(error.message.slice(11))
+        : parsed.data.kind === 'creative.discover' || parsed.data.kind === 'creative.media' ? creativeRetrySeconds * 1000
+          : 2 ** Math.min(item.attempts, 8) * 1000
       const delaySeconds = Math.max(1, Math.ceil(retryMs / 1000))
       if (parsed.data.kind === 'app.sync' || parsed.data.kind === 'app.storefront') await scheduleSyncRetry(env, parsed.data.appId, error, delaySeconds)
       await retryTask(env, parsed.data.taskId, error, delaySeconds)
@@ -446,6 +458,14 @@ async function cleanup(env: Env) {
       cursor = listing.truncated ? listing.cursor : undefined
     } while (cursor)
   }
+  try {
+    const pageCount = await first<{ page_count: number }>(env.DB, 'PRAGMA page_count')
+    const pageSize = await first<{ page_size: number }>(env.DB, 'PRAGMA page_size')
+    const bytes = Number(pageCount?.page_count ?? 0) * Number(pageSize?.page_size ?? 0)
+    if (bytes >= 7 * 1024 * 1024 * 1024) log('error', 'd1.capacity.alert', { bytes, thresholdBytes: 7 * 1024 * 1024 * 1024, action: 'prepare-ad-shard' })
+  } catch (error) {
+    log('warn', 'd1.capacity.check_failed', { error: error instanceof Error ? error.message : String(error) })
+  }
 }
 
 export default class JobsWorker extends WorkerEntrypoint<Env> {
@@ -454,6 +474,7 @@ export default class JobsWorker extends WorkerEntrypoint<Env> {
   override async scheduled(controller: ScheduledController): Promise<void> {
     if (controller.cron === '*/20 * * * *') await dispatchTracked(this.env)
     else if (controller.cron === '*/15 * * * *') await dispatchReconcile(this.env)
+    else if (controller.cron === '10 * * * *') await dispatchCreativeCollections(this.env)
     else if (controller.cron === '30 0 * * *') await dispatchCharts(this.env)
     else if (controller.cron === '0 4 * * *') await cleanup(this.env)
   }

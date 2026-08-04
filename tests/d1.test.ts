@@ -22,6 +22,7 @@ beforeEach(() => {
   db.exec(readFileSync(resolve(root, 'migrations/0004_dedupe_listing_changes.sql'), 'utf8'))
   db.exec(readFileSync(resolve(root, 'migrations/0005_focus_active_markets.sql'), 'utf8'))
   db.exec(readFileSync(resolve(root, 'migrations/0006_replace_ghana_with_india.sql'), 'utf8'))
+  db.exec(readFileSync(resolve(root, 'migrations/0007_creatives.sql'), 'utf8'))
 })
 afterEach(() => db.close())
 
@@ -83,6 +84,28 @@ describe('D1 schema and reference data', () => {
   it('does not recreate the removed standalone chart-entry app index', () => {
     const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='trending_chart_entries'").all().map((row) => row.name)
     expect(indexes).not.toContain('trending_chart_entries_app_idx')
+  })
+
+  it('deduplicates public ads, assets, regions, and app links', () => {
+    const publisherId = Number(db.prepare("INSERT INTO publishers(platform,external_id,name,created_at,updated_at) VALUES('ios','pub','Publisher','now','now')").run().lastInsertRowid)
+    const appId = Number(db.prepare("INSERT INTO apps(platform,external_id,publisher_id,display_name,origin_country_code,discovered_from,discovered_at,created_at,updated_at) VALUES('ios','123',?,'App','us','test','now','now','now')").run(publisherId).lastInsertRowid)
+    const advertiserId = Number(db.prepare("INSERT INTO ad_advertisers(source,source_advertiser_id,name,created_at,updated_at) VALUES('meta','page','Publisher','now','now')").run().lastInsertRowid)
+    const adInsert = db.prepare("INSERT INTO ads(advertiser_id,source,source_ad_id,first_collected_at,last_collected_at,created_at,updated_at) VALUES(?,'meta','ad-1','now','now','now','now')")
+    const adId = Number(adInsert.run(advertiserId).lastInsertRowid)
+    expect(() => adInsert.run(advertiserId)).toThrow(/UNIQUE/)
+    const assetInsert = db.prepare("INSERT INTO ad_assets(sha256,r2_key,media_type,mime_type,byte_size,created_at,updated_at) VALUES('abc','assets/abc','image','image/png',10,'now','now')")
+    assetInsert.run()
+    expect(() => assetInsert.run()).toThrow(/UNIQUE/)
+    const regionInsert = db.prepare("INSERT INTO ad_regions(ad_id,country_code,created_at) VALUES(?,'us','now')")
+    regionInsert.run(adId)
+    expect(() => regionInsert.run(adId)).toThrow(/UNIQUE/)
+    const linkInsert = db.prepare("INSERT INTO ad_app_links(ad_id,app_id,confidence,match_reason,created_at,updated_at) VALUES(?,?,'certain','store_id','now','now')")
+    linkInsert.run(adId, appId)
+    expect(() => linkInsert.run(adId, appId)).toThrow(/UNIQUE/)
+  })
+
+  it('enforces the 250 MiB creative asset ceiling', () => {
+    expect(() => db.prepare("INSERT INTO ad_assets(sha256,r2_key,media_type,mime_type,byte_size,created_at,updated_at) VALUES('large','assets/large','video','video/mp4',262144001,'now','now')").run()).toThrow(/CHECK/)
   })
 
   it('focuses synchronization on the 30 selected monetization markets', () => {

@@ -7,19 +7,19 @@ type OpenApiOperation = { operationId?: string; security?: unknown[]; parameters
 const openapi = JSON.parse(readFileSync(resolve(root, 'packages/contracts/openapi.json'), 'utf8')) as { paths: Record<string, Record<string, OpenApiOperation>> }
 
 describe('public contract', () => {
-  it('publishes all 40 compatible path templates', () => expect(Object.keys(openapi.paths)).toHaveLength(40))
+  it('publishes all 45 compatible path templates', () => expect(Object.keys(openapi.paths)).toHaveLength(45))
   it.each(['/auth/register', '/apps/{platform}/{externalId}', '/charts', '/publishers/{platform}/{externalId}/import'])('contains %s', (path) => expect(openapi.paths[path]).toBeDefined())
   it('declares secure browser cookie and bearer schemes', () => {
     const text = JSON.stringify(openapi)
     expect(text).toContain('__Host-openapps-session')
     expect(text).toContain('bearerAuth')
   })
-  it('assigns a unique operationId and every required path parameter to all 48 operations', () => {
+  it('assigns a unique operationId and every required path parameter to all 53 operations', () => {
     const operations = Object.entries(openapi.paths).flatMap(([path, methods]) => Object.values(methods).map((operation) => ({ path, operation })))
     const ids = operations.map(({ operation }) => operation.operationId)
-    expect(operations).toHaveLength(48)
+    expect(operations).toHaveLength(53)
     expect(ids.every(Boolean)).toBe(true)
-    expect(new Set(ids).size).toBe(48)
+    expect(new Set(ids).size).toBe(53)
     for (const { path, operation } of operations) {
       const expected = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1])
       const actual = (operation.parameters ?? []).filter((parameter) => parameter.in === 'path' && parameter.required).map((parameter) => parameter.name)

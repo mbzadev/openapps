@@ -21,6 +21,7 @@ const Trending = lazy(() => import('@/pages/discovery/Trending'))
 const ExplorerScreenshots = lazy(() => import('@/pages/explorer/Screenshots'))
 const ExplorerIcons = lazy(() => import('@/pages/explorer/Icons'))
 const AsoIndex = lazy(() => import('@/pages/aso/Index'))
+const CreativesIndex = lazy(() => import('@/pages/creatives/Index'))
 
 const loading = <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
 
@@ -87,6 +88,7 @@ export default function Router() {
             {/* Explorer */}
             <Route path="/explorer/screenshots" element={<ExplorerScreenshots />} />
             <Route path="/explorer/icons" element={<ExplorerIcons />} />
+            <Route path="/creatives" element={<CreativesIndex />} />
 
             {/* ASO */}
             <Route path="/aso" element={<Navigate to="/aso/explorer" replace />} />

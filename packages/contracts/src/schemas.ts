@@ -20,3 +20,21 @@ export const publisherImportRequest = z.object({ external_ids: z.array(z.string(
 export const errorResponse = z.object({ message: z.string(), errors: z.record(z.string(), z.array(z.string())).optional() })
 export const user = z.object({ id: z.number().int(), name: z.string(), email: z.email(), email_verified_at: z.string().nullable(), created_at: z.string(), updated_at: z.string() })
 export const appResource = z.object({ id: z.number().int(), name: z.string(), platform, external_id: z.string(), icon_url: z.string().nullable(), rating: z.number().nullable(), rating_count: z.number().int().nullable(), version: z.string().nullable(), is_available: z.boolean(), is_tracked: z.boolean() }).passthrough()
+export const creativeSource = z.enum(['meta', 'google', 'tiktok'])
+export const creativeResource = z.object({
+  id: z.number().int(), source: creativeSource, source_ad_id: z.string(), source_url: z.string().nullable(),
+  status: z.enum(['active', 'inactive', 'removed', 'unknown']),
+  advertiser: z.object({ id: z.number().int(), name: z.string(), domain: z.string().nullable() }).nullable(),
+  headline: z.string().nullable(), body: z.string().nullable(), call_to_action: z.string().nullable(), landing_url: z.string().nullable(),
+  platforms: z.array(z.string()), languages: z.array(z.string()), started_at: z.string().nullable(), ended_at: z.string().nullable(),
+  preview: z.object({ url: z.string(), type: z.enum(['image', 'video', 'thumbnail']), mime_type: z.string() }).nullable(),
+  variants_count: z.number().int(), apps_count: z.number().int(),
+  provenance: z.object({ source: creativeSource, collected_at: z.string(), raw_archived: z.boolean() }),
+  first_collected_at: z.string(), last_collected_at: z.string(),
+}).passthrough()
+export const creativePage = z.object({
+  data: z.array(creativeResource), links: z.object({ prev: z.string().nullable(), next: z.string().nullable() }),
+  meta: z.object({ current_page: z.number().int(), last_page: z.number().int(), per_page: z.number().int(), total: z.number().int() }),
+  coverage: z.record(creativeSource, z.object({ status: z.string(), last_collected_at: z.string().nullable() })),
+})
+export const creativeSyncResponse = z.object({ status: z.enum(['queued', 'running']), target_id: z.number().int() })

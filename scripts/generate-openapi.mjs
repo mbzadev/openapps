@@ -7,6 +7,7 @@ import {
   folderCreateRequest, folderUpdateRequest, loginRequest, moveToFolderRequest,
   passwordUpdateRequest, profileDeleteRequest, profileUpdateRequest, publisherImportRequest,
   registerRequest, user,
+  creativePage, creativeResource, creativeSyncResponse,
 } from '../packages/contracts/src/schemas.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -26,6 +27,8 @@ const successSchemas = {
   appChanges: looseObject, competitorChanges: looseObject, getCharts: looseObject,
   exploreScreenshots: looseObject, exploreIcons: looseObject, listCountries: looseArray, listStoreCategories: looseArray,
   searchPublishers: looseArray, listPublishers: looseArray, showPublisher: looseObject, publisherStoreApps: looseObject,
+  listCreatives: creativePage, showCreative: creativeResource, listAppCreatives: creativePage,
+  syncAppCreatives: creativeSyncResponse, listAdvertiserCreatives: creativePage,
 }
 const stringQuery = (name, required = false, extra = {}) => ({ name, in: 'query', required, schema: { type: 'string', ...extra } })
 const integerQuery = (name, required = false, extra = {}) => ({ name, in: 'query', required, schema: { type: 'integer', ...extra } })
@@ -53,6 +56,13 @@ const queryParameters = {
   searchPublishers: [stringQuery('term', true, { minLength: 2 }), platformQuery(true), stringQuery('country_code', false, { minLength: 2, maxLength: 2 })],
   showPublisher: [stringQuery('name')],
   publisherStoreApps: [stringQuery('country_code', false, { minLength: 2, maxLength: 2 })],
+  listCreatives: [...pageQueries, stringQuery('search', false, { maxLength: 100 }), stringQuery('source', false, { enum: ['meta', 'google', 'tiktok'] }),
+    stringQuery('app'), integerQuery('app_id', false, { minimum: 1 }), integerQuery('advertiser_id', false, { minimum: 1 }),
+    integerQuery('publisher_id', false, { minimum: 1 }), stringQuery('country', false, { minLength: 2, maxLength: 2 }),
+    stringQuery('format', false, { enum: ['image', 'video', 'carousel', 'text', 'unknown'] }),
+    stringQuery('status', false, { enum: ['active', 'inactive', 'removed', 'unknown'] }), stringQuery('date_from', false, { format: 'date' }), stringQuery('date_to', false, { format: 'date' })],
+  listAppCreatives: [...pageQueries, stringQuery('source', false, { enum: ['meta', 'google', 'tiktok'] }), stringQuery('country', false, { minLength: 2, maxLength: 2 }), stringQuery('format', false, { enum: ['image', 'video', 'carousel', 'text', 'unknown'] })],
+  listAdvertiserCreatives: [...pageQueries, stringQuery('source', false, { enum: ['meta', 'google', 'tiktok'] }), stringQuery('country', false, { minLength: 2, maxLength: 2 }), stringQuery('format', false, { enum: ['image', 'video', 'carousel', 'text', 'unknown'] })],
 }
 const operation = (method, path, tag, summary, operationId, requestBody, options = {}) => {
   paths[path] ??= {}
@@ -90,6 +100,9 @@ for (const [method, path, tag, summary, operationId, requestBody, options] of [
   ['get','/changes/apps','Change Monitor','Tracked app changes','appChanges'],['get','/changes/competitors','Change Monitor','Competitor changes','competitorChanges'],['get','/charts','Charts','Trending charts','getCharts'],
   ['get','/explorer/screenshots','Explorer','Browse screenshots','exploreScreenshots'],['get','/explorer/icons','Explorer','Browse icons','exploreIcons'],['get','/countries','Countries','Countries','listCountries'],['get','/store-categories','Store Categories','Store categories','listStoreCategories'],
   ['get','/publishers/search','Publishers','Search publishers','searchPublishers'],['get','/publishers','Publishers','User publishers','listPublishers'],['get','/publishers/{platform}/{externalId}','Publishers','Publisher detail','showPublisher'],['get','/publishers/{platform}/{externalId}/store-apps','Publishers','Publisher store apps','publisherStoreApps'],['post','/publishers/{platform}/{externalId}/import','Publishers','Import publisher apps','importPublisherApps',publisherImportRequest,{ status: 204 }],
+  ['get','/creatives','Creatives','Search public ad creatives','listCreatives'],['get','/creatives/{id}','Creatives','Creative detail','showCreative'],
+  ['get','/apps/{platform}/{externalId}/creatives','Creatives','App creatives','listAppCreatives'],['post','/apps/{platform}/{externalId}/creatives/sync','Creatives','Queue creative refresh','syncAppCreatives',undefined,{ status: 202 }],
+  ['get','/ad-advertisers/{id}/creatives','Creatives','Advertiser creatives','listAdvertiserCreatives'],
 ]) operation(method, path, tag, summary, operationId, requestBody, options)
 
 const document = {

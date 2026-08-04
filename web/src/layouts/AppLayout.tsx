@@ -12,6 +12,7 @@ import {
   FileSearch2,
   GitCompare,
   ChartBar as BarIcon,
+  Megaphone,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -68,6 +69,7 @@ function usePageTitle(app: AppDetailResource | null) {
     else if (path === '/competitors') title = 'Competitors — OpenApps'
     else if (path === '/explorer/screenshots') title = 'Screenshots — OpenApps'
     else if (path === '/explorer/icons') title = 'App Icons — OpenApps'
+    else if (path === '/creatives') title = 'Ad Creatives — OpenApps'
     else if (path.startsWith('/aso/')) title = 'ASO — OpenApps'
     else if (path === '/settings') title = 'Settings — OpenApps'
     else if (app?.name) title = `${app.name} — OpenApps`
@@ -126,6 +128,8 @@ function useBreadcrumbs(app: AppDetailResource | null): BreadcrumbItemData[] {
   if (path === '/explorer/icons') {
     return [{ title: 'Explorer' }, { title: 'App Icons', href: '/explorer/icons' }]
   }
+
+  if (path === '/creatives') return [{ title: 'Ad Creatives', href: '/creatives' }]
 
   if (path.startsWith('/aso/')) {
     const title = asoItems.find((item) => item.href === path)?.title ?? 'ASO'
@@ -189,6 +193,7 @@ const asoItems: NavItem[] = [
 ]
 
 const explorerItems: NavItem[] = [
+  { title: 'Ad Creatives', href: '/creatives', icon: Megaphone },
   { title: 'App Icons', href: '/explorer/icons', icon: ImageIcon },
   { title: 'Screenshots', href: '/explorer/screenshots', icon: Camera },
 ]

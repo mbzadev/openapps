@@ -7,6 +7,7 @@ import {
 import { persistStoreApp, scraperFor } from '@openapps/scrapers'
 import { appDetailResource, appResource, appSelect, findAppResource } from './resources.js'
 import type { Env, Variables } from './env.js'
+import creativesApi, { scheduleCreativeDiscovery } from './creatives-api.js'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 const platformSchema = z.enum(['ios', 'android'])
@@ -239,7 +240,10 @@ app.get('/apps/search', async (c) => {
   const platform = parsed.success ? parsed.data : 'ios'
   const results = (await scraperFor(platform).search(term, country, int(c.req.query('limit'), 20, 50))).filter((result) => result.external_id)
   const searchCountry = c.req.query('country_code') ?? c.req.query('country')
-  await Promise.all(results.map((result) => persistStoreApp(c.var.db, result, { ...(searchCountry ? { country: searchCountry } : {}), discoveredFrom: 'search' })))
+  await Promise.all(results.map(async (result) => {
+    const appId = await persistStoreApp(c.var.db, result, { ...(searchCountry ? { country: searchCountry } : {}), discoveredFrom: 'search' })
+    await scheduleCreativeDiscovery(c, appId)
+  }))
   const tracked = new Set((await all<{ external_id: string }>(c.var.db, `SELECT a.external_id FROM apps a JOIN user_apps ua ON ua.app_id=a.id
     WHERE ua.user_id=? AND a.platform=?`, c.var.auth.user.id, platform)).map((r) => r.external_id))
   const url = new URL(c.req.url), excluded = new Set([...url.searchParams.getAll('exclude_external_ids[]'), ...url.searchParams.getAll('exclude_external_ids')])
@@ -381,6 +385,7 @@ app.post('/apps/:platform/:externalId/competitors', async (c) => {
   if (!competitor) {
     const competitorPlatform = parsed.data.competitor_platform ?? platformSchema.parse(c.req.param('platform'))
     competitor = { id: await persistStoreApp(c.var.db, await scraperFor(competitorPlatform).lookup(parsed.data.competitor_external_id!), { discoveredFrom: 'competitor' }) }
+    await scheduleCreativeDiscovery(c, competitor.id)
   }
   if (target.id === competitor.id) return c.json(validation({ competitor_external_id: ['An app cannot compete with itself.'] }), 422)
   const now = nowIso()
@@ -770,7 +775,8 @@ app.get('/publishers/search', async (c) => {
     publisher.app_count++
     if (publisher.sample_apps.length < 3) publisher.sample_apps.push({ name: result.name, icon_url: result.icon_url })
     grouped.set(key, publisher)
-    await persistStoreApp(c.var.db, result, { discoveredFrom: 'publisher-search' })
+    const appId = await persistStoreApp(c.var.db, result, { discoveredFrom: 'publisher-search' })
+    await scheduleCreativeDiscovery(c, appId)
   }
   return c.json([...grouped.values()])
 })
@@ -791,7 +797,10 @@ app.get('/publishers/:platform/:externalId/store-apps', async (c) => {
   try { results = await scraperFor(platform).developerApps(externalId, c.req.query('country_code') ?? c.req.query('country') ?? 'us') } catch { return c.json({ apps: [] }) }
   const tracked = new Set((await all<{ external_id: string }>(c.var.db, `SELECT a.external_id FROM apps a JOIN user_apps ua ON ua.app_id=a.id
     WHERE ua.user_id=? AND a.platform=?`, c.var.auth.user.id, platform)).map((row) => row.external_id))
-  for (const result of results) await persistStoreApp(c.var.db, result, { discoveredFrom: 'publisher' })
+  for (const result of results) {
+    const appId = await persistStoreApp(c.var.db, result, { discoveredFrom: 'publisher' })
+    await scheduleCreativeDiscovery(c, appId)
+  }
   return c.json({ apps: results.map((result) => ({ external_id: result.external_id, name: result.name, icon_url: result.icon_url,
     rating: result.rating, rating_count: result.rating_count, is_free: result.is_free, category: result.category, is_tracked: tracked.has(result.external_id) })) })
 })
@@ -815,5 +824,7 @@ app.post('/publishers/:platform/:externalId/import', async (c) => {
   }
   return c.body(null, 204)
 })
+
+app.route('/', creativesApi)
 
 export default app

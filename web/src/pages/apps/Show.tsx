@@ -30,6 +30,7 @@ import {
   Star as StarIcon,
   History as HistoryIcon,
   GitCommit,
+  Megaphone,
   ArrowUpRight,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -41,6 +42,7 @@ import CompetitorsTab from '@/components/tabs/CompetitorsTab'
 import KeywordsTab from '@/components/tabs/KeywordsTab'
 import RankingsTab from '@/components/tabs/RankingsTab'
 import RatingsTab from '@/components/tabs/RatingsTab'
+import CreativesTab from '@/components/tabs/CreativesTab'
 import QueryError from '@/components/QueryError'
 import SyncingOverlay from '@/components/SyncingOverlay'
 import PartialSyncBanner from '@/components/PartialSyncBanner'
@@ -82,6 +84,7 @@ type TabConfig = {
 }
 
 const TABS: TabConfig[] = [
+  { value: 'creatives', label: 'Publicités', icon: Megaphone },
   { value: 'store_listing', label: 'Store Listing', icon: FileText },
   { value: 'competitors', label: 'Competitors', icon: UsersIcon },
   { value: 'keywords', label: 'Keyword Density', icon: KeyIcon },
@@ -232,7 +235,7 @@ export default function AppsShow() {
   const versions = detail.versions ?? []
   const listings = detail.listings ?? []
   const hasListingsOrVersions = listings.length > 0 || versions.length > 0
-  const shouldBlockForSync = isSyncing && !hasListingsOrVersions
+  const shouldBlockForSync = isSyncing && !hasListingsOrVersions && activeTab !== 'creatives'
   // Backend returns versions newest-first (App::versions() relation orders by id desc).
   const latestVersion = versions[0]
   const activeVersion: VersionResource | undefined =
@@ -346,7 +349,7 @@ export default function AppsShow() {
       )}
 
       {/* Existing data stays usable while a background refresh is running. */}
-      {!shouldBlockForSync && hasListingsOrVersions && (
+      {!shouldBlockForSync && (hasListingsOrVersions || activeTab === 'creatives') && (
         <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
           {/* Mobile/tablet: track + tab bar + store (last) */}
           <div className="flex flex-col gap-2 lg:hidden">
@@ -588,6 +591,9 @@ export default function AppsShow() {
             )}
             {activeTab === 'versions' && (
               <VersionsTab versions={versions} />
+            )}
+            {activeTab === 'creatives' && (
+              <CreativesTab platform={detail.platform} externalId={detail.external_id} />
             )}
           </div>
         </div>

@@ -126,3 +126,70 @@ export const syncTasks = sqliteTable('sync_tasks', {
   taskId: text('task_id').notNull().unique(), kind: text().notNull(), payload: text({ mode: 'json' }).notNull(), status: text().notNull().default('pending'),
   attemptCount: integer('attempt_count').notNull().default(0), failureReason: text('failure_reason'), errorMessage: text('error_message'), availableAt: text('available_at'), ...timestamps,
 }, (table) => [index('sync_tasks_retry_idx').on(table.status, table.availableAt)])
+
+export const adAdvertisers = sqliteTable('ad_advertisers', {
+  id: integer().primaryKey({ autoIncrement: true }), source: text({ enum: ['meta', 'google', 'tiktok'] }).notNull(),
+  sourceAdvertiserId: text('source_advertiser_id'), name: text().notNull(), domain: text(), sourceUrl: text('source_url'), ...timestamps,
+}, (table) => [
+  uniqueIndex('ad_advertisers_source_external_unique').on(table.source, table.sourceAdvertiserId).where(sql`${table.sourceAdvertiserId} IS NOT NULL`),
+  index('ad_advertisers_name_idx').on(table.name), index('ad_advertisers_domain_idx').on(table.domain),
+])
+
+export const adCollectionTargets = sqliteTable('ad_collection_targets', {
+  id: integer().primaryKey({ autoIncrement: true }), publisherId: integer('publisher_id').references(() => publishers.id, { onDelete: 'cascade' }),
+  developerDomain: text('developer_domain'), displayName: text('display_name').notNull(), status: text().notNull().default('pending'),
+  lastCollectedAt: text('last_collected_at'), nextCollectAt: text('next_collect_at'), lastError: text('last_error'), ...timestamps,
+}, (table) => [index('ad_collection_targets_due_idx').on(table.status, table.nextCollectAt, table.lastCollectedAt)])
+
+export const adCollectionRuns = sqliteTable('ad_collection_runs', {
+  id: integer().primaryKey({ autoIncrement: true }), targetId: integer('target_id').notNull().references(() => adCollectionTargets.id, { onDelete: 'cascade' }),
+  source: text({ enum: ['meta', 'google', 'tiktok'] }).notNull(), reason: text().notNull(), status: text().notNull().default('running'),
+  resultCount: integer('result_count').notNull().default(0), newAdCount: integer('new_ad_count').notNull().default(0),
+  linkedAppCount: integer('linked_app_count').notNull().default(0), candidateCount: integer('candidate_count').notNull().default(0),
+  errorMessage: text('error_message'), rawR2Key: text('raw_r2_key'), startedAt: text('started_at').notNull(), completedAt: text('completed_at'), ...timestamps,
+}, (table) => [index('ad_collection_runs_target_source_idx').on(table.targetId, table.source, table.startedAt)])
+
+export const ads = sqliteTable('ads', {
+  id: integer().primaryKey({ autoIncrement: true }), advertiserId: integer('advertiser_id').references(() => adAdvertisers.id, { onDelete: 'set null' }),
+  source: text({ enum: ['meta', 'google', 'tiktok'] }).notNull(), sourceAdId: text('source_ad_id').notNull(), sourceUrl: text('source_url'),
+  status: text({ enum: ['active', 'inactive', 'removed', 'unknown'] }).notNull().default('unknown'), headline: text(), body: text(),
+  callToAction: text('call_to_action'), landingUrl: text('landing_url'), platforms: text({ mode: 'json' }).notNull().default([]),
+  languages: text({ mode: 'json' }).notNull().default([]), startedAt: text('started_at'), endedAt: text('ended_at'),
+  impressionsMin: integer('impressions_min'), impressionsMax: integer('impressions_max'), reachMin: integer('reach_min'), reachMax: integer('reach_max'),
+  spendMin: real('spend_min'), spendMax: real('spend_max'), currency: text(), firstCollectedAt: text('first_collected_at').notNull(),
+  lastCollectedAt: text('last_collected_at').notNull(), rawR2Key: text('raw_r2_key'), ...timestamps,
+}, (table) => [unique().on(table.source, table.sourceAdId), index('ads_advertiser_idx').on(table.advertiserId, table.lastCollectedAt), index('ads_source_status_idx').on(table.source, table.status, table.lastCollectedAt)])
+
+export const adCreativeVariants = sqliteTable('ad_creative_variants', {
+  id: integer().primaryKey({ autoIncrement: true }), adId: integer('ad_id').notNull().references(() => ads.id, { onDelete: 'cascade' }),
+  sourceVariantId: text('source_variant_id'), format: text({ enum: ['image', 'video', 'carousel', 'text', 'unknown'] }).notNull().default('unknown'),
+  headline: text(), body: text(), callToAction: text('call_to_action'), landingUrl: text('landing_url'), position: integer().notNull().default(0), ...timestamps,
+}, (table) => [uniqueIndex('ad_creative_variants_source_unique').on(table.adId, table.sourceVariantId).where(sql`${table.sourceVariantId} IS NOT NULL`), index('ad_creative_variants_ad_idx').on(table.adId, table.position)])
+
+export const adAssets = sqliteTable('ad_assets', {
+  id: integer().primaryKey({ autoIncrement: true }), sha256: text().notNull().unique(), r2Key: text('r2_key').notNull().unique(),
+  mediaType: text('media_type', { enum: ['image', 'video', 'thumbnail'] }).notNull(), mimeType: text('mime_type').notNull(), byteSize: integer('byte_size').notNull(),
+  width: integer(), height: integer(), durationMs: integer('duration_ms'), originalUrl: text('original_url'), ...timestamps,
+}, (table) => [index('ad_assets_media_type_idx').on(table.mediaType, table.createdAt)])
+
+export const adCreativeAssets = sqliteTable('ad_creative_assets', {
+  variantId: integer('variant_id').notNull().references(() => adCreativeVariants.id, { onDelete: 'cascade' }),
+  assetId: integer('asset_id').notNull().references(() => adAssets.id, { onDelete: 'cascade' }), role: text().notNull().default('primary'),
+  position: integer().notNull().default(0), createdAt: text('created_at').notNull(),
+}, (table) => [primaryKey({ columns: [table.variantId, table.assetId, table.role] }), index('ad_creative_assets_variant_idx').on(table.variantId, table.position)])
+
+export const adRegions = sqliteTable('ad_regions', {
+  adId: integer('ad_id').notNull().references(() => ads.id, { onDelete: 'cascade' }), countryCode: text('country_code').notNull().references(() => countries.code),
+  createdAt: text('created_at').notNull(),
+}, (table) => [primaryKey({ columns: [table.adId, table.countryCode] }), index('ad_regions_country_idx').on(table.countryCode, table.adId)])
+
+export const adAppLinks = sqliteTable('ad_app_links', {
+  id: integer().primaryKey({ autoIncrement: true }), adId: integer('ad_id').notNull().references(() => ads.id, { onDelete: 'cascade' }),
+  appId: integer('app_id').references(() => apps.id, { onDelete: 'cascade' }), candidateName: text('candidate_name'), confidence: text().notNull(),
+  matchReason: text('match_reason').notNull(), ...timestamps,
+}, (table) => [uniqueIndex('ad_app_links_app_unique').on(table.adId, table.appId).where(sql`${table.appId} IS NOT NULL`), index('ad_app_links_app_idx').on(table.appId, table.confidence, table.adId)])
+
+export const adAdvertiserAliases = sqliteTable('ad_advertiser_aliases', {
+  id: integer().primaryKey({ autoIncrement: true }), advertiserId: integer('advertiser_id').notNull().references(() => adAdvertisers.id, { onDelete: 'cascade' }),
+  alias: text().notNull(), normalizedAlias: text('normalized_alias').notNull(), isVerified: integer('is_verified', { mode: 'boolean' }).notNull().default(false), ...timestamps,
+}, (table) => [unique().on(table.advertiserId, table.normalizedAlias), index('ad_advertiser_aliases_lookup_idx').on(table.normalizedAlias, table.isVerified)])
