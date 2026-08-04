@@ -191,8 +191,16 @@ async function syncChart(env: Env, message: Extract<JobMessage, { kind: 'chart.s
   }
   const now = nowIso()
   const persistedEntries: Array<{ rank: number; appId: number; price: number; currency: string | null }> = []
-  for (const entry of entries) {
-    const store = await lookupWithBrowserFallback(env, message.platform, entry.external_id, message.countryCode)
+  const stores: StoreApp[] = []
+  // Store lookups dominate chart duration. Keep concurrency bounded so a
+  // 100-entry chart completes well inside the Queue consumer deadline without
+  // flooding Apple or Google.
+  for (let offset = 0; offset < entries.length; offset += 10) {
+    stores.push(...await Promise.all(entries.slice(offset, offset + 10).map((entry) =>
+      lookupWithBrowserFallback(env, message.platform, entry.external_id, message.countryCode))))
+  }
+  for (const [index, entry] of entries.entries()) {
+    const store = stores[index]!
     const appId = await persistStoreApp(env.DB, store, { country: message.countryCode, discoveredFrom: 'chart' })
     persistedEntries.push({ rank: entry.rank, appId, price: store.price, currency: store.currency })
   }
@@ -234,7 +242,8 @@ async function claimTask(env: Env, message: JobMessage): Promise<boolean> {
   const reclaimed = await env.DB.prepare(`UPDATE sync_tasks SET status='running',
       attempt_count=attempt_count+1, failure_reason=NULL, error_message=NULL,
       available_at=NULL, updated_at=?
-    WHERE task_id=? AND status NOT IN ('running','completed')`)
+    WHERE task_id=? AND status!='completed'
+      AND (status!='running' OR updated_at < datetime('now','-10 minutes'))`)
     .bind(now, message.taskId).run()
   return (reclaimed.meta.changes ?? 0) > 0
 }
