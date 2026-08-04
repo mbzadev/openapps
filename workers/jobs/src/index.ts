@@ -1,8 +1,8 @@
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import puppeteer from '@cloudflare/puppeteer'
-import { all, first, jobMessageSchema, log, nowIso, type JobMessage, type Platform } from '@openapps/core'
+import { all, chartTaskId, first, jobMessageSchema, log, nowIso, type JobMessage, type Platform } from '@openapps/core'
 import { createDatabase, syncTasks } from '@openapps/db'
-import { detectLocaleChanges, googlePlayAppUrl, parseGooglePlayHtml, persistStoreApp, scraperFor, type StoreApp } from '@openapps/scrapers'
+import { appleLegacyChartUrl, detectLocaleChanges, googlePlayAppUrl, parseAppleLegacyChart, parseGooglePlayHtml, persistStoreApp, scraperFor, type ChartApp, type StoreApp } from '@openapps/scrapers'
 import { StoreRateLimiter } from './rate-limiter.js'
 import type { Env } from './env.js'
 
@@ -133,6 +133,10 @@ async function syncApp(env: Env, message: Extract<JobMessage, { kind: 'app.sync'
   await setSync(env, message.appId, 'running', 'store-metadata')
   const store = await lookupWithBrowserFallback(env, message.platform, app.external_id, 'us', 'en-US')
   await persistStoreApp(env.DB, store, { country: 'us', locale: 'en-US', discoveredFrom: message.source })
+  if (message.source === 'on-demand') {
+    await setSync(env, message.appId, 'completed', null)
+    return
+  }
   const targets = (await storefrontTargets(env, message.platform)).filter((target) => target.countryCode !== 'us' || target.locale !== 'en-US')
   const children: Array<Extract<JobMessage, { kind: 'app.storefront' }>> = targets.map((target) => ({
     v: 1,
@@ -173,6 +177,67 @@ async function syncStorefront(env: Env, message: Extract<JobMessage, { kind: 'ap
   await persistStoreApp(env.DB, store, { country: message.countryCode, locale: message.locale, discoveredFrom: message.source })
 }
 
+async function persistChartApp(env: Env, platform: Platform, countryCode: string, entry: ChartApp): Promise<number> {
+  const now = nowIso()
+  let publisherId: number | null = null
+  if (entry.publisher_name) {
+    await env.DB.prepare(`INSERT INTO publishers (platform,external_id,name,created_at,updated_at)
+      VALUES (?,?,?,?,?) ON CONFLICT(platform,external_id) DO UPDATE SET
+      name=excluded.name,updated_at=excluded.updated_at`)
+      .bind(platform, entry.publisher_name, entry.publisher_name, now, now).run()
+    publisherId = (await first<{ id: number }>(env.DB,
+      'SELECT id FROM publishers WHERE platform=? AND external_id=?', platform, entry.publisher_name))?.id ?? null
+  }
+  const categoryId = entry.category_id
+    ? (await first<{ id: number }>(env.DB, 'SELECT id FROM store_categories WHERE platform=? AND external_id=?', platform, entry.category_id))?.id ?? null
+    : entry.category
+      ? (await first<{ id: number }>(env.DB, 'SELECT id FROM store_categories WHERE platform=? AND name=? COLLATE NOCASE ORDER BY priority DESC,id LIMIT 1', platform, entry.category))?.id ?? null
+      : null
+  await env.DB.prepare(`INSERT INTO apps
+    (platform,external_id,publisher_id,category_id,display_name,icon_url,origin_country_code,is_free,
+     discovered_from,discovered_at,is_available,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,'chart',?,1,?,?)
+    ON CONFLICT(platform,external_id) DO UPDATE SET
+      publisher_id=COALESCE(apps.publisher_id,excluded.publisher_id),
+      category_id=COALESCE(apps.category_id,excluded.category_id),
+      display_name=excluded.display_name,
+      icon_url=COALESCE(excluded.icon_url,apps.icon_url),
+      is_free=excluded.is_free,is_available=1,updated_at=excluded.updated_at`)
+    .bind(platform, entry.external_id, publisherId, categoryId, entry.name, entry.icon_url,
+      countryCode, entry.is_free ? 1 : 0, now, now, now).run()
+  const app = await first<{ id: number }>(env.DB,
+    'SELECT id FROM apps WHERE platform=? AND external_id=?', platform, entry.external_id)
+  if (!app) throw new Error(`Could not persist chart app ${entry.external_id}`)
+  return app.id
+}
+
+async function chartWithBrowserFallback(env: Env, message: Extract<JobMessage, { kind: 'chart.sync' }>): Promise<ChartApp[]> {
+  try {
+    return await scraperFor(message.platform).chart(message.collection, message.countryCode, 100, message.categoryExternalId)
+  } catch (nativeError) {
+    if (message.platform !== 'ios' || message.collection !== 'top_grossing') throw nativeError
+    log('warn', 'chart.browser_fallback', {
+      platform: message.platform,
+      collection: message.collection,
+      countryCode: message.countryCode,
+      nativeError: nativeError instanceof Error ? nativeError.message : String(nativeError),
+    })
+    const browser = await puppeteer.launch(env.BROWSER)
+    try {
+      const page = await browser.newPage()
+      await page.goto(appleLegacyChartUrl(message.collection, message.countryCode, 100, message.categoryExternalId), {
+        waitUntil: 'domcontentloaded', timeout: 30_000,
+      })
+      const text = await page.evaluate(() => (globalThis as unknown as {
+        document: { body: { textContent: string | null } }
+      }).document.body.textContent ?? '')
+      return parseAppleLegacyChart(JSON.parse(text) as never)
+    } finally {
+      await browser.close()
+    }
+  }
+}
+
 async function syncChart(env: Env, message: Extract<JobMessage, { kind: 'chart.sync' }>) {
   const quota = await limit(env, message.platform, 'chart')
   if (!quota.allowed) throw new Error(`RATE_LIMIT:${quota.retryAfterMs}`)
@@ -184,25 +249,16 @@ async function syncChart(env: Env, message: Extract<JobMessage, { kind: 'chart.s
     WHERE platform=? AND collection=? AND country_code=? AND category_id=? AND snapshot_date=?`,
   message.platform, message.collection, message.countryCode, category.id, message.snapshotDate)
   if (existing) return
-  const entries = await scraperFor(message.platform).chart(message.collection, message.countryCode, 100, message.categoryExternalId)
+  const entries = await chartWithBrowserFallback(env, message)
   if (!entries.length) {
     log('warn', 'chart.empty', { platform: message.platform, collection: message.collection, countryCode: message.countryCode, snapshotDate: message.snapshotDate })
-    return
+    throw new Error(`EMPTY_CHART:${message.platform}:${message.collection}:${message.countryCode}`)
   }
   const now = nowIso()
   const persistedEntries: Array<{ rank: number; appId: number; price: number; currency: string | null }> = []
-  const stores: StoreApp[] = []
-  // Store lookups dominate chart duration. Keep concurrency bounded so a
-  // 100-entry chart completes well inside the Queue consumer deadline without
-  // flooding Apple or Google.
-  for (let offset = 0; offset < entries.length; offset += 10) {
-    stores.push(...await Promise.all(entries.slice(offset, offset + 10).map((entry) =>
-      lookupWithBrowserFallback(env, message.platform, entry.external_id, message.countryCode))))
-  }
-  for (const [index, entry] of entries.entries()) {
-    const store = stores[index]!
-    const appId = await persistStoreApp(env.DB, store, { country: message.countryCode, discoveredFrom: 'chart' })
-    persistedEntries.push({ rank: entry.rank, appId, price: store.price, currency: store.currency })
+  for (const entry of entries) {
+    const appId = await persistChartApp(env, message.platform, message.countryCode, entry)
+    persistedEntries.push({ rank: entry.rank, appId, price: entry.price, currency: entry.currency })
   }
   const chartId = `(SELECT id FROM trending_charts WHERE platform=? AND collection=? AND country_code=? AND category_id=? AND snapshot_date=?)`
   await env.DB.batch([
@@ -317,7 +373,7 @@ async function dispatchTracked(env: Env) {
 }
 
 async function dispatchReconcile(env: Env) {
-  const stale = await all<{ id: number }>(env.DB, `SELECT id FROM sync_statuses WHERE status IN ('pending','running','failed') AND updated_at < datetime('now','-15 minutes') LIMIT 100`)
+  const stale = await all<{ id: number }>(env.DB, `SELECT id FROM sync_statuses WHERE status IN ('pending','running','failed') AND datetime(updated_at) < datetime('now','-15 minutes') LIMIT 100`)
   const slot = Math.floor(Date.now() / (15 * 60_000))
   if (stale.length) await env.RECONCILE.sendBatch(stale.map(({ id }) => ({ body: { v: 1, kind: 'sync.reconcile', syncStatusId: id, taskId: `reconcile:${id}:${slot}` }, contentType: 'json' as const })))
 }
@@ -328,8 +384,8 @@ async function dispatchCharts(env: Env) {
   const collections = ['top_free', 'top_paid', 'top_grossing'] as const
   const ios: JobMessage[] = [], android: JobMessage[] = []
   for (const country of countries) for (const collection of collections) {
-    if (country.is_active_ios) ios.push({ v: 1, kind: 'chart.sync', platform: 'ios', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: `chart:ios:${country.code}:${collection}:${date}` })
-    if (country.is_active_android) android.push({ v: 1, kind: 'chart.sync', platform: 'android', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: `chart:android:${country.code}:${collection}:${date}` })
+    if (country.is_active_ios) ios.push({ v: 1, kind: 'chart.sync', platform: 'ios', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: chartTaskId('ios', country.code, collection, null, date) })
+    if (country.is_active_android) android.push({ v: 1, kind: 'chart.sync', platform: 'android', countryCode: country.code, collection, categoryExternalId: null, snapshotDate: date, taskId: chartTaskId('android', country.code, collection, null, date) })
   }
   for (let i = 0; i < ios.length; i += 100) await env.CHARTS_IOS.sendBatch(ios.slice(i, i + 100).map((body) => ({ body, contentType: 'json' as const })))
   for (let i = 0; i < android.length; i += 100) await env.CHARTS_ANDROID.sendBatch(android.slice(i, i + 100).map((body) => ({ body, contentType: 'json' as const })))

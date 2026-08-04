@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import {
-  all, authenticateRequest, clearSessionCookie, first, hashPassword, issueToken, jsonValue,
+  all, authenticateRequest, chartTaskId, clearSessionCookie, first, hashPassword, issueToken, jsonValue,
   nowIso, sessionCookie, verifyPassword, type AuthContext, type Database, type JobMessage, type Platform,
 } from '@openapps/core'
 import { persistStoreApp, scraperFor } from '@openapps/scrapers'
@@ -76,6 +76,20 @@ function syncResource(row: Record<string, unknown>) {
     error_message: row.error_message, job_id: row.job_id, started_at: row.started_at, completed_at: row.completed_at,
     next_retry_at: row.next_retry_at, elapsed_ms: elapsedMs,
   }
+}
+
+function activeSyncIsStale(row: Record<string, unknown>): boolean {
+  if (!['pending', 'running', 'processing'].includes(String(row.status))) return false
+  const updatedAt = Date.parse(String(row.updated_at ?? ''))
+  if (!Number.isFinite(updatedAt)) return true
+  const maxAge = row.status === 'pending' ? 2 * 60_000 : 15 * 60_000
+  return updatedAt < Date.now() - maxAge
+}
+
+async function freshActiveSync(db: Database, appId: number) {
+  const active = await first<Record<string, unknown>>(db,
+    "SELECT * FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", appId)
+  return active && !activeSyncIsStale(active) ? active : null
 }
 
 app.post('/auth/register', async (c) => {
@@ -266,7 +280,7 @@ app.get('/apps/:platform/:externalId', async (c) => {
   const configuredRefreshHours = Number(c.env.TRACKED_APP_REFRESH_HOURS ?? 24)
   const refreshHours = Number.isFinite(configuredRefreshHours) && configuredRefreshHours > 0 ? configuredRefreshHours : 24
   const stale = !target.last_synced_at || Date.parse(target.last_synced_at) < Date.now() - refreshHours * 60 * 60 * 1000
-  if (stale && !(await first(c.var.db, "SELECT 1 AS found FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", target.id))) {
+  if (stale && !(await freshActiveSync(c.var.db, target.id))) {
     await enqueueSync(c.env, platform, c.req.param('externalId'), target.id, 'api', c.var.db)
   }
   const detail = await appDetailResource(c.var.db, c.var.auth, c.req.param('platform'), c.req.param('externalId'))
@@ -283,7 +297,7 @@ app.get('/apps/:platform/:externalId/listing', async (c) => {
   const row = await first<Record<string, unknown>>(c.var.db, 'SELECT * FROM app_store_listings WHERE app_id=? AND locale=? ORDER BY id DESC LIMIT 1', target.id, locale)
   if (row) return c.json({ ...row, screenshots: jsonValue(row.screenshots as string, []) })
   const platform = platformSchema.parse(c.req.param('platform'))
-  if (!(await first(c.var.db, "SELECT 1 AS found FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", target.id))) {
+  if (!(await freshActiveSync(c.var.db, target.id))) {
     await enqueueSync(c.env, platform, c.req.param('externalId'), target.id, 'api', c.var.db)
   }
   return c.json({ message: 'Not found.' }, 404)
@@ -316,25 +330,29 @@ app.post('/apps/:platform/:externalId/sync', async (c) => {
   const platform = platformSchema.parse(c.req.param('platform'))
   const target = await resolveApp(c.var.db, platform, c.req.param('externalId'))
   if (!target) return c.json({ message: 'Not found.' }, 404)
-  const active = await first<Record<string, unknown>>(c.var.db, "SELECT * FROM sync_statuses WHERE app_id=? AND status IN ('pending','running','processing')", target.id)
+  const active = await freshActiveSync(c.var.db, target.id)
   if (active) return c.json(syncResource(active))
   await enqueueSync(c.env, platform, c.req.param('externalId'), target.id, 'api', c.var.db)
   const status = await first<Record<string, unknown>>(c.var.db, 'SELECT * FROM sync_statuses WHERE app_id=?', target.id)
   return c.json(syncResource(status!))
 })
 app.get('/apps/:platform/:externalId/sync-status', async (c) => {
-  const target = await resolveApp(c.var.db, c.req.param('platform'), c.req.param('externalId'))
+  const target = await first<{ id: number; last_synced_at: string | null }>(c.var.db,
+    'SELECT id,last_synced_at FROM apps WHERE platform=? AND external_id=?', c.req.param('platform'), c.req.param('externalId'))
   if (!target) return c.json({ message: 'Not found.' }, 404)
-  let status = await first<Record<string, unknown>>(c.var.db, 'SELECT * FROM sync_statuses WHERE app_id=?', target.id)
-  let created = false
+  const status = await first<Record<string, unknown>>(c.var.db, 'SELECT * FROM sync_statuses WHERE app_id=?', target.id)
   if (!status) {
-    const now = nowIso()
-    status = await c.var.db.prepare(`INSERT INTO sync_statuses
-      (app_id,status,current_step,progress_done,progress_total,created_at,updated_at) VALUES (?,'pending',NULL,0,0,?,?) RETURNING *`)
-      .bind(target.id, now, now).first<Record<string, unknown>>()
-    created = true
+    return c.json(syncResource({
+      app_id: target.id, status: 'completed', current_step: null, progress_done: 1, progress_total: 1,
+      error_message: null, job_id: null, started_at: null, completed_at: target.last_synced_at,
+      next_retry_at: null, updated_at: target.last_synced_at,
+    }))
   }
-  return c.json(syncResource(status!), created ? 201 : 200)
+  if (activeSyncIsStale(status)) {
+    return c.json(syncResource({ ...status, status: 'failed', current_step: null,
+      error_message: 'Synchronization stalled and will be retried.', completed_at: null }))
+  }
+  return c.json(syncResource(status))
 })
 
 app.get('/apps/:platform/:externalId/competitors', async (c) => {
@@ -673,7 +691,7 @@ app.get('/charts', async (c) => {
     WHERE platform=? AND collection=? AND country_code=? AND category_id=? ORDER BY snapshot_date DESC LIMIT 1`, platform, collection, country, category.id)
   const today = utcDate(new Date()), isStale = !snapshot || snapshot.snapshot_date < today
   if (isStale) {
-    const taskId = `chart:${platform}:${collection}:${country}:${category.id}:${today}`
+    const taskId = chartTaskId(platform, country, collection, category.external_id, today)
     const queued = await first<{ status: string; updated_at: string }>(c.var.db,
       'SELECT status,updated_at FROM sync_tasks WHERE task_id=?', taskId)
     const runningIsStale = queued?.status === 'running'

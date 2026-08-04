@@ -45,6 +45,13 @@ describe('legacy /api/v1 behavior in workerd', () => {
     const rivalId = await insertApp('com.example.rival')
     await insertApp('com.example.untracked')
     const refreshId = await insertApp('com.example.refresh-window')
+    const freshId = await insertApp('com.example.fresh-status')
+
+    await testEnv.DB.prepare('UPDATE apps SET last_synced_at=? WHERE id=?').bind(now, freshId).run()
+    const freshStatus = await call('/apps/ios/com.example.fresh-status/sync-status')
+    expect(freshStatus.status).toBe(200)
+    expect(await freshStatus.json()).toMatchObject({ app_id: freshId, status: 'completed', completed_at: now })
+    expect(await testEnv.DB.prepare('SELECT id FROM sync_statuses WHERE app_id=?').bind(freshId).first()).toBeNull()
 
     expect((await call('/apps', { method: 'POST', body: JSON.stringify({ platform: 'ios', external_id: 'com.example.parent' }) })).status).toBe(201)
     expect((await call('/apps?folder_id=unassigned')).status).toBe(200)
@@ -75,6 +82,9 @@ describe('legacy /api/v1 behavior in workerd', () => {
     expect(await firstSync.json()).toMatchObject({ app_id: parentId, status: 'queued', progress: { done: 0, total: 1 }, failed_items: [], failed_items_count: 0 })
     expect((await call('/apps/ios/com.example.parent/sync', { method: 'POST' })).status).toBe(200)
     expect(queued).toHaveLength(1)
+    await testEnv.DB.prepare("UPDATE sync_statuses SET updated_at=datetime('now','-5 minutes') WHERE app_id=?").bind(parentId).run()
+    expect((await call('/apps/ios/com.example.parent/sync', { method: 'POST' })).status).toBe(200)
+    expect(queued).toHaveLength(2)
 
     const competitor = await call('/apps/ios/com.example.parent/competitors', { method: 'POST', body: JSON.stringify({ competitor_app_id: rivalId, relationship: 'indirect' }) })
     expect(competitor.status).toBe(201)

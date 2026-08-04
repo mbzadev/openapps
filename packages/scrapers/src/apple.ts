@@ -40,6 +40,7 @@ type MarketingFeedResult = {
 }
 
 type MarketingFeed = { feed?: { results?: MarketingFeedResult[] } }
+type LegacyChartFeed = { feed?: { entry?: Array<Record<string, unknown>> } }
 
 type ApplePage = Record<string, unknown>
 
@@ -88,6 +89,49 @@ function priceFromLockup(lockup: ApplePage): number {
   const configuration = record(record(lockup.buttonAction).purchaseConfiguration)
   const match = text(configuration.buyParams)?.match(/(?:^|&)price=([0-9.]+)/)
   return match ? Number(match[1]) : 0
+}
+
+export function appleLegacyChartUrl(
+  collection: 'top_free' | 'top_paid' | 'top_grossing',
+  country: string,
+  limit: number,
+  categoryId?: string | null,
+): string {
+  const feed = collection === 'top_free'
+    ? 'topfreeapplications'
+    : collection === 'top_paid'
+      ? 'toppaidapplications'
+      : 'topgrossingapplications'
+  const genre = categoryId ? `/genre=${encodeURIComponent(categoryId)}` : ''
+  // The country-prefixed RSS route intermittently rejects Cloudflare Worker
+  // egress. Apple's MZStoreServices route serves the same feed and accepts the
+  // storefront through cc, with Browser Rendering retained as a final fallback.
+  return `https://itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/${feed}/limit=${Math.min(limit, 200)}${genre}/json?cc=${encodeURIComponent(country.toLowerCase())}`
+}
+
+export function parseAppleLegacyChart(data: LegacyChartFeed): ChartApp[] {
+  return (data.feed?.entry ?? []).map((entry, index) => {
+    const id = entry.id as { attributes?: { 'im:id'?: string } } | undefined
+    const name = entry['im:name'] as { label?: string } | undefined
+    const artist = entry['im:artist'] as { label?: string } | undefined
+    const images = entry['im:image'] as Array<{ label?: string }> | undefined
+    const category = entry.category as { attributes?: { label?: string; 'im:id'?: string } } | undefined
+    const price = entry['im:price'] as { attributes?: { amount?: string; currency?: string } } | undefined
+    return {
+      rank: index + 1,
+      external_id: id?.attributes?.['im:id'] ?? '',
+      name: name?.label ?? '',
+      publisher_name: artist?.label ?? '',
+      icon_url: images?.at(-1)?.label ?? null,
+      category: category?.attributes?.label ?? null,
+      category_id: category?.attributes?.['im:id'] ?? null,
+      price: Number(price?.attributes?.amount ?? 0),
+      currency: price?.attributes?.currency ?? null,
+      is_free: Number(price?.attributes?.amount ?? 0) === 0,
+      rating: null,
+      version: null,
+    }
+  }).filter((entry) => entry.external_id)
 }
 
 function storeAppFromLockup(lockup: ApplePage, developerId: string | null = null): StoreApp {
@@ -346,36 +390,7 @@ export class AppleScraper implements StoreScraper {
         version: null,
       })).filter((entry) => entry.external_id)
     }
-    const feed = collection === 'top_free'
-      ? 'topfreeapplications'
-      : collection === 'top_paid'
-        ? 'toppaidapplications'
-        : 'topgrossingapplications'
-    const genre = categoryId ? `/genre=${encodeURIComponent(categoryId)}` : ''
-    const url = `https://itunes.apple.com/${country}/rss/${feed}/limit=${Math.min(limit, 200)}${genre}/json`
-    const data = await fetchBoundedJson<{ feed?: { entry?: Array<Record<string, unknown>> } }>(url)
-    const entries = data.feed?.entry ?? []
-    return entries.map((entry, index) => {
-      const id = entry.id as { attributes?: { 'im:id'?: string } } | undefined
-      const name = entry['im:name'] as { label?: string } | undefined
-      const artist = entry['im:artist'] as { label?: string; attributes?: { href?: string } } | undefined
-      const images = entry['im:image'] as Array<{ label?: string }> | undefined
-      const category = entry.category as { attributes?: { label?: string; 'im:id'?: string } } | undefined
-      const price = entry['im:price'] as { attributes?: { amount?: string; currency?: string } } | undefined
-      return {
-        rank: index + 1,
-        external_id: id?.attributes?.['im:id'] ?? '',
-        name: name?.label ?? '',
-        publisher_name: artist?.label ?? '',
-        icon_url: images?.at(-1)?.label ?? null,
-        category: category?.attributes?.label ?? null,
-        category_id: category?.attributes?.['im:id'] ?? null,
-        price: Number(price?.attributes?.amount ?? 0),
-        currency: price?.attributes?.currency ?? null,
-        is_free: Number(price?.attributes?.amount ?? 0) === 0,
-        rating: null,
-        version: null,
-      }
-    }).filter((entry) => entry.external_id)
+    const data = await fetchBoundedJson<LegacyChartFeed>(appleLegacyChartUrl(collection, country, limit, categoryId))
+    return parseAppleLegacyChart(data)
   }
 }

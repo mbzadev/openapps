@@ -153,10 +153,49 @@ describe('store adapters', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://rss.marketingtools.apple.com/api/v2/us/apps/top-free/100/apps.json')
   })
 
+  it('loads Apple Top Grossing from the legacy JSON feed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ feed: { entry: [{
+      id: { attributes: { 'im:id': '6448311069' } },
+      'im:name': { label: 'ChatGPT' },
+      'im:artist': { label: 'OpenAI' },
+      'im:image': [{ label: 'https://img/100x100.png' }],
+      category: { attributes: { label: 'Productivity', 'im:id': '6007' } },
+      'im:price': { attributes: { amount: '0', currency: 'USD' } },
+    }] } }))))
+    const chart = await new AppleScraper().chart('top_grossing', 'us', 100)
+    expect(chart).toEqual([expect.objectContaining({ rank: 1, external_id: '6448311069', name: 'ChatGPT' })])
+  })
+
   it('normalizes Google Play JSON-LD', async () => {
     const html = `<html><script type="application/ld+json">${JSON.stringify({ '@type': 'SoftwareApplication', name: 'Example Android', author: { name: 'MBZA', url: '/store/apps/dev?id=mbza' }, applicationCategory: 'Tools', image: 'https://img', aggregateRating: { ratingValue: '4.5', ratingCount: '100' }, offers: { price: '0', priceCurrency: 'USD' }, description: 'Description' })}</script></html>`
     vi.stubGlobal('fetch', vi.fn(async () => new Response(html, { headers: { 'content-type': 'text/html' } })))
     const app = await new GooglePlayScraper().lookup('dev.mbza.example')
     expect(app).toMatchObject({ platform: 'android', external_id: 'dev.mbza.example', name: 'Example Android', publisher_name: 'MBZA', is_free: true })
+  })
+
+  it('loads all Google Play charts through the current batched endpoint', async () => {
+    const appData: unknown[] = [['com.openai.chatgpt']]
+    appData[3] = 'ChatGPT'
+    appData[14] = 'OpenAI'
+    appData[1] = [null, null, null, [null, null, 'https://img/icon.png']]
+    appData[4] = [null, 4.8]
+    appData[8] = [null, [[0, 'USD']]]
+    const card = [appData]
+    const payload: unknown[] = [[]]
+    ;(payload[0] as unknown[])[1] = [[]]
+    ;((payload[0] as unknown[])[1] as unknown[])[0] = []
+    ;(((payload[0] as unknown[])[1] as unknown[])[0] as unknown[])[28] = [[card]]
+    const response = `)]}'\n\n${JSON.stringify([[null, null, JSON.stringify(payload)]])}\n`
+    const fetchMock = vi.fn(async () => new Response(response))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const chart = await new GooglePlayScraper().chart('top_grossing', 'us', 100)
+
+    expect(chart).toEqual([expect.objectContaining({
+      rank: 1, external_id: 'com.openai.chatgpt', name: 'ChatGPT', publisher_name: 'OpenAI',
+      price: 0, currency: 'USD', is_free: true, rating: 4.8,
+    })])
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/_/PlayStoreUi/data/batchexecute')
+    expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain('topgrossing')
   })
 })

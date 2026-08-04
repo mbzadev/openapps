@@ -45,15 +45,15 @@ describe('at-least-once Queue delivery', () => {
     expect((await testEnv.ARTIFACTS.list({ prefix: 'dlq/' })).objects.length).toBeGreaterThanOrEqual(1)
   })
 
-  it('acknowledges an empty chart response without creating an empty snapshot', async () => {
+  it('retries an empty chart response instead of recording false success', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ feed: { entry: [] } }), { headers: { 'content-type': 'application/json' } })))
     const message: JobMessage = { v: 1, kind: 'chart.sync', platform: 'ios', countryCode: 'us', collection: 'top_free', categoryExternalId: null, snapshotDate: '2026-08-04', taskId: 'empty-chart-task' }
     const batch = createMessageBatch('openapps-charts-ios', [{ id: 'empty-chart', timestamp: new Date(), body: message, attempts: 1 }])
     const ctx = createExecutionContext()
     await handleBatch(batch, testEnv)
-    expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['empty-chart'])
+    expect((await getQueueResult(batch, ctx)).retryMessages).toHaveLength(1)
     expect(await testEnv.DB.prepare("SELECT id FROM trending_charts WHERE platform='ios' AND collection='top_free' AND country_code='us' AND snapshot_date='2026-08-04'").first()).toBeNull()
-    expect(await testEnv.DB.prepare("SELECT status FROM sync_tasks WHERE task_id='empty-chart-task'").first()).toEqual({ status: 'completed' })
+    expect(await testEnv.DB.prepare("SELECT status FROM sync_tasks WHERE task_id='empty-chart-task'").first()).toEqual({ status: 'pending' })
   })
 
   it('does not refetch a chart snapshot that already exists for the tuple and date', async () => {
@@ -73,7 +73,30 @@ describe('at-least-once Queue delivery', () => {
     expect(await testEnv.DB.prepare("SELECT COUNT(*) AS count FROM trending_charts WHERE platform='ios' AND collection='top_paid' AND country_code='us' AND snapshot_date='2026-08-04'").first()).toEqual({ count: 1 })
   })
 
-  it('fans a full app sync out into idempotent country/locale storefront messages', async () => {
+  it('completes an on-demand sync after the primary storefront without a global fanout', async () => {
+    const now = new Date().toISOString()
+    const app = await testEnv.DB.prepare(`INSERT INTO apps
+      (platform,external_id,display_name,origin_country_code,discovered_from,discovered_at,created_at,updated_at)
+      VALUES ('ios','456','Fast App','us','test',?,?,?) RETURNING id`).bind(now, now, now).first<{ id: number }>()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      resultCount: 1,
+      results: [{ trackId: 456, trackName: 'Fast App', artistName: 'MBZA', artistId: 9, primaryGenreName: 'Utilities', primaryGenreId: 6002, price: 0, currency: 'USD', version: '1.0', description: 'Ready' }],
+    }))))
+    const dispatched: JobMessage[] = []
+    const producer = { send: async (body: JobMessage) => { dispatched.push(body) }, sendBatch: async (batch: Array<{ body: JobMessage }>) => { dispatched.push(...batch.map(({ body }) => body)) } }
+    const bindings = { ...testEnv, SYNC_TRACKED_IOS: producer, SYNC_TRACKED_ANDROID: producer, SYNC_ON_DEMAND_IOS: producer, SYNC_ON_DEMAND_ANDROID: producer, CHARTS_IOS: producer, CHARTS_ANDROID: producer, RECONCILE: producer }
+    const message: JobMessage = { v: 1, kind: 'app.sync', platform: 'ios', appId: app!.id, source: 'on-demand', taskId: 'fast-on-demand' }
+    const batch = createMessageBatch('openapps-sync-on-demand-ios', [{ id: 'fast-on-demand-delivery', timestamp: new Date(), body: message, attempts: 1 }])
+    const ctx = createExecutionContext()
+
+    await handleBatch(batch, bindings as never)
+
+    expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['fast-on-demand-delivery'])
+    expect(dispatched).toHaveLength(0)
+    expect(await testEnv.DB.prepare('SELECT status,progress_done,progress_total FROM sync_statuses WHERE app_id=?').bind(app!.id).first()).toEqual({ status: 'completed', progress_done: 1, progress_total: 1 })
+  })
+
+  it('fans a scheduled app sync out into idempotent country/locale storefront messages', async () => {
     const now = new Date().toISOString()
     const app = await testEnv.DB.prepare(`INSERT INTO apps
       (platform,external_id,display_name,origin_country_code,discovered_from,discovered_at,created_at,updated_at)
@@ -93,8 +116,8 @@ describe('at-least-once Queue delivery', () => {
       SYNC_ON_DEMAND_IOS: producer, SYNC_ON_DEMAND_ANDROID: producer,
       CHARTS_IOS: producer, CHARTS_ANDROID: producer, RECONCILE: producer,
     }
-    const message: JobMessage = { v: 1, kind: 'app.sync', platform: 'ios', appId: app!.id, source: 'on-demand', taskId: 'fanout-root' }
-    const batch = createMessageBatch('openapps-sync-on-demand-ios', [{ id: 'fanout-root-delivery', timestamp: new Date(), body: message, attempts: 1 }])
+    const message: JobMessage = { v: 1, kind: 'app.sync', platform: 'ios', appId: app!.id, source: 'scheduled', taskId: 'fanout-root' }
+    const batch = createMessageBatch('openapps-sync-tracked-ios', [{ id: 'fanout-root-delivery', timestamp: new Date(), body: message, attempts: 1 }])
     const ctx = createExecutionContext()
     await handleBatch(batch, bindings as never)
     expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['fanout-root-delivery'])

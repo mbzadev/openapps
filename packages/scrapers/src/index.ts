@@ -10,4 +10,5 @@ export function scraperFor(platform: Platform) {
 }
 
 export { AppleScraper, GooglePlayScraper }
+export { appleLegacyChartUrl, parseAppleLegacyChart } from './apple.js'
 export { googlePlayAppUrl, parseGooglePlayHtml } from './google.js'

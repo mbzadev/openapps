@@ -3,6 +3,16 @@ import { z } from 'zod'
 export const platformSchema = z.enum(['ios', 'android'])
 export type Platform = z.infer<typeof platformSchema>
 
+export function chartTaskId(
+  platform: Platform,
+  countryCode: string,
+  collection: 'top_free' | 'top_paid' | 'top_grossing',
+  categoryExternalId: string | null,
+  snapshotDate: string,
+) {
+  return `chart:v2:${platform}:${countryCode}:${collection}:${categoryExternalId ?? 'root'}:${snapshotDate}`
+}
+
 export const jobMessageSchema = z.discriminatedUnion('kind', [
   z.object({
     v: z.literal(1),

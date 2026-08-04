@@ -35,6 +35,58 @@ function appIds(html: string): string[] {
   return [...new Set([...html.matchAll(/\/store\/apps\/details\?id=([a-zA-Z0-9._]+)/g)].map((match) => match[1]).filter(Boolean))] as string[]
 }
 
+function nested(value: unknown, path: number[]): unknown {
+  let current = value
+  for (const index of path) {
+    if (!Array.isArray(current)) return undefined
+    current = current[index]
+  }
+  return current
+}
+
+function googlePlayChartRequest(collection: string, category: string, limit: number): URLSearchParams {
+  // Google removed chart links from the collection HTML. The Play Store web
+  // client now loads the same data through its vyAe2 batched Fetch endpoint.
+  // Keep the request projection deliberately small: it asks only for the app
+  // card fields used below instead of mirroring the full browser payload.
+  const fields = [64, 1, 195, 71, 8, 72, 9, 10, 11, 139, 12, 16, 145, 148, 150, 151, 152, 27, 30, 31, 96, 32, 34, 163, 100, 165, 104, 169, 108, 110, 113, 55, 56, 57, 122]
+  const filters = [
+    [[true], null, [[null, []]], null, null, null, null, [null, 2], null, null, null, null, null, null, [1], null, null, null, null, null, null, null, [1]],
+    [null, [[null, []]]],
+    [null, [[null, []]], null, [true]],
+    [null, [[null, []]]],
+    null,
+    null,
+    null,
+    null,
+    [[[null, []]]],
+    [[[null, []]]],
+  ]
+  const config = [
+    [8, [20, limit]], true, null, fields,
+    [null, null, filters, [[]]],
+    null, null, [[[1, 2], [10, 8, 9], [], []]],
+  ]
+  const request = [[['vyAe2', JSON.stringify([[null, config, [2, collection, category]]]), null, 'generic']]]
+  return new URLSearchParams({ 'f.req': JSON.stringify(request) })
+}
+
+function parseGooglePlayChartResponse(responseText: string): unknown[] {
+  for (const line of responseText.split('\n')) {
+    if (!line.startsWith('[[')) continue
+    try {
+      const envelope = JSON.parse(line) as unknown
+      const payloadText = nested(envelope, [0, 2])
+      if (typeof payloadText !== 'string') continue
+      const apps = nested(JSON.parse(payloadText), [0, 1, 0, 28, 0])
+      if (Array.isArray(apps)) return apps
+    } catch {
+      // Batchexecute responses include non-JSON framing and unrelated rows.
+    }
+  }
+  throw new Error('Google Play chart response format changed')
+}
+
 export function googlePlayAppUrl(id: string, country: string, locale: string): string {
   const url = new URL('https://play.google.com/store/apps/details')
   url.searchParams.set('id', id)
@@ -122,29 +174,47 @@ export class GooglePlayScraper implements StoreScraper {
     limit = 100,
     categoryId?: string | null,
   ): Promise<ChartApp[]> {
-    const path = collection === 'top_free' ? 'topselling_free' : collection === 'top_paid' ? 'topselling_paid' : 'topgrossing'
-    const url = new URL(`https://play.google.com/store/apps/collection/${path}`)
-    if (categoryId) url.searchParams.set('cat', categoryId)
-    url.searchParams.set('gl', country.toUpperCase())
-    url.searchParams.set('hl', 'en-US')
-    const html = await fetchBoundedText(url.toString())
-    const ids = appIds(html).slice(0, Math.min(limit, 100))
-    const results = await Promise.allSettled(ids.map((id) => this.lookup(id, country)))
-    return results.flatMap((result, index) => result.status === 'fulfilled'
-      ? [{
-          rank: index + 1,
-          external_id: result.value.external_id,
-          name: result.value.name,
-          publisher_name: result.value.publisher_name,
-          icon_url: result.value.icon_url,
-          category: result.value.category,
-          category_id: result.value.category_id,
-          price: result.value.price,
-          currency: result.value.currency,
-          is_free: result.value.is_free,
-          rating: result.value.rating,
-          version: result.value.version,
-        }]
-      : [])
+    const cluster = collection === 'top_free' ? 'topselling_free' : collection === 'top_paid' ? 'topselling_paid' : 'topgrossing'
+    const url = new URL('https://play.google.com/_/PlayStoreUi/data/batchexecute')
+    url.searchParams.set('rpcids', 'vyAe2')
+    url.searchParams.set('source-path', '/store/apps')
+    url.searchParams.set('authuser', '0')
+    url.searchParams.set('soc-app', '121')
+    url.searchParams.set('soc-platform', '1')
+    url.searchParams.set('soc-device', '1')
+    url.searchParams.set('rt', 'c')
+    url.searchParams.set('hl', 'en')
+    url.searchParams.set('gl', country.toLowerCase())
+    const boundedLimit = Math.min(Math.max(1, limit), 100)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: googlePlayChartRequest(cluster, categoryId ?? 'APPLICATION', boundedLimit),
+      signal: AbortSignal.timeout(20_000),
+    })
+    if (!response.ok) throw new Error(`Upstream ${response.status} for play.google.com`)
+    const entries = parseGooglePlayChartResponse(await response.text()).slice(0, boundedLimit)
+    return entries.flatMap((entry, index) => {
+      const externalId = nested(entry, [0, 0, 0])
+      if (typeof externalId !== 'string' || !externalId) return []
+      const rawPrice = Number(nested(entry, [0, 8, 1, 0, 0]) ?? 0)
+      const price = Number.isFinite(rawPrice) ? rawPrice / 1_000_000 : 0
+      const currency = nested(entry, [0, 8, 1, 0, 1])
+      const rating = Number(nested(entry, [0, 4, 1]))
+      return [{
+        rank: index + 1,
+        external_id: externalId,
+        name: String(nested(entry, [0, 3]) ?? externalId),
+        publisher_name: String(nested(entry, [0, 14]) ?? ''),
+        icon_url: typeof nested(entry, [0, 1, 3, 2]) === 'string' ? String(nested(entry, [0, 1, 3, 2])) : null,
+        category: null,
+        category_id: null,
+        price,
+        currency: typeof currency === 'string' ? currency : null,
+        is_free: price === 0,
+        rating: Number.isFinite(rating) ? rating : null,
+        version: null,
+      }]
+    })
   }
 }
