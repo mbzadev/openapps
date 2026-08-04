@@ -96,6 +96,29 @@ describe('at-least-once Queue delivery', () => {
     expect(await testEnv.DB.prepare('SELECT status,progress_done,progress_total FROM sync_statuses WHERE app_id=?').bind(app!.id).first()).toEqual({ status: 'completed', progress_done: 1, progress_total: 1 })
   })
 
+  it('reconciles a stalled sync without dispatching a global storefront fanout', async () => {
+    const now = new Date().toISOString()
+    const app = await testEnv.DB.prepare(`INSERT INTO apps
+      (platform,external_id,display_name,origin_country_code,discovered_from,discovered_at,created_at,updated_at)
+      VALUES ('ios','789','Recovered App','us','test',?,?,?) RETURNING id`).bind(now, now, now).first<{ id: number }>()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      resultCount: 1,
+      results: [{ trackId: 789, trackName: 'Recovered App', artistName: 'MBZA', artistId: 9, primaryGenreName: 'Utilities', primaryGenreId: 6002, price: 0, currency: 'USD', version: '1.0', description: 'Recovered' }],
+    }))))
+    const dispatched: JobMessage[] = []
+    const producer = { send: async (body: JobMessage) => { dispatched.push(body) }, sendBatch: async (batch: Array<{ body: JobMessage }>) => { dispatched.push(...batch.map(({ body }) => body)) } }
+    const bindings = { ...testEnv, SYNC_TRACKED_IOS: producer, SYNC_TRACKED_ANDROID: producer, SYNC_ON_DEMAND_IOS: producer, SYNC_ON_DEMAND_ANDROID: producer, CHARTS_IOS: producer, CHARTS_ANDROID: producer, RECONCILE: producer }
+    const message: JobMessage = { v: 1, kind: 'app.sync', platform: 'ios', appId: app!.id, source: 'reconcile', taskId: 'reconcile-primary-only' }
+    const batch = createMessageBatch('openapps-sync-tracked-ios', [{ id: 'reconcile-primary-delivery', timestamp: new Date(), body: message, attempts: 1 }])
+    const ctx = createExecutionContext()
+
+    await handleBatch(batch, bindings as never)
+
+    expect((await getQueueResult(batch, ctx)).explicitAcks).toEqual(['reconcile-primary-delivery'])
+    expect(dispatched).toHaveLength(0)
+    expect(await testEnv.DB.prepare('SELECT status,progress_done,progress_total FROM sync_statuses WHERE app_id=?').bind(app!.id).first()).toEqual({ status: 'completed', progress_done: 1, progress_total: 1 })
+  })
+
   it('fans a scheduled app sync out into idempotent country/locale storefront messages', async () => {
     const now = new Date().toISOString()
     const app = await testEnv.DB.prepare(`INSERT INTO apps

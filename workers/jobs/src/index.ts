@@ -133,7 +133,7 @@ async function syncApp(env: Env, message: Extract<JobMessage, { kind: 'app.sync'
   await setSync(env, message.appId, 'running', 'store-metadata')
   const store = await lookupWithBrowserFallback(env, message.platform, app.external_id, 'us', 'en-US')
   await persistStoreApp(env.DB, store, { country: 'us', locale: 'en-US', discoveredFrom: message.source })
-  if (message.source === 'on-demand') {
+  if (message.source !== 'scheduled') {
     await setSync(env, message.appId, 'completed', null)
     return
   }
