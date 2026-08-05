@@ -48,8 +48,10 @@ The production branch is `main`. Cloudflare Builds connects both Workers to this
 
 Configure the two Cloudflare Builds projects without preview deployments:
 
-- `openapps-web`: root directory `/`, build command `npm ci && npm run check`, deploy command `npm run deploy -w @openapps/platform`.
-- `openapps-jobs`: root directory `/`, build command `npm ci && npm run check`, deploy command `npm run deploy -w @openapps/jobs-worker`.
+- `openapps-web`: root directory `/`, build command `npm run check`, deploy command `npm run deploy -w @openapps/platform`.
+- `openapps-jobs`: root directory `/`, build command `npm run check`, deploy command `npm run deploy -w @openapps/jobs-worker`.
+
+Workers Builds runs its locked `npm clean-install` automatically before the configured build command; do not add a second `npm ci`, which only consumes build minutes without improving reproducibility.
 
 Set `PAYLOAD_SECRET` as an encrypted `openapps-web` Worker secret, and keep Meta/TikTok credentials as encrypted `openapps-jobs` secrets. Never put those values in Git or Cloudflare Build variables printed in logs. Production is promoted only from validated `main` commits. Preview Workers and preview resources are intentionally absent.
 
