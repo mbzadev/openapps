@@ -1,6 +1,6 @@
 # OpenApps
 
-Cloudflare-native App Store and Google Play intelligence, deployed at [apps.mbza.dev](https://apps.mbza.dev).
+Cloudflare-native App Store and Google Play intelligence, deployed at .
 
 OpenApps runs Payload CMS 3 and Next.js on Cloudflare Workers through OpenNext. The public product, the Payload operations back office, the compatible `/api/v1` API and the 29-tool OAuth MCP endpoint are delivered by `openapps-web`. The private `openapps-jobs` Worker runs store synchronization, charts, creative collection, reconciliation and cleanup through Cron Triggers and Queues.
 
